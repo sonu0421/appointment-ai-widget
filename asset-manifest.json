@@ -1,0 +1,13 @@
+{
+  "files": {
+    "main.css": "/appointment-ai-widget/static/css/main.40d15ba6.css",
+    "main.js": "/appointment-ai-widget/static/js/main.48705750.js",
+    "index.html": "/appointment-ai-widget/index.html",
+    "main.40d15ba6.css.map": "/appointment-ai-widget/static/css/main.40d15ba6.css.map",
+    "main.48705750.js.map": "/appointment-ai-widget/static/js/main.48705750.js.map"
+  },
+  "entrypoints": [
+    "static/css/main.40d15ba6.css",
+    "static/js/main.48705750.js"
+  ]
+}

@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chat Widget Integration Example</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            padding: 40px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            text-align: center;
+        }
+        .demo-content {
+            line-height: 1.6;
+            color: #666;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Chat Widget Integration Demo</h1>
+        <div class="demo-content">
+            <p>This is a demo page showing how to integrate the chat widget into any website.</p>
+            <p>Look at the bottom-right corner - you'll see the chat widget floating button!</p>
+            <p>Click on it to open the chat window and test the functionality.</p>
+            
+            <h2>How to integrate:</h2>
+            <ol>
+                <li>Copy the embed.js file to your website</li>
+                <li>Add this script tag to your HTML:</li>
+                <pre><code>&lt;script src="path/to/embed.js"&gt;&lt;/script&gt;</code></pre>
+                <li>Update the configuration in embed.js with your Firebase and webhook URLs</li>
+                <li>That's it! The chat widget will appear automatically</li>
+            </ol>
+        </div>
+    </div>
+
+    <!-- Chat Widget Embed Script -->
+    <script src="embed.js"></script>
+</body>
+</html>
