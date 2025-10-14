@@ -1,0 +1,745 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dr. Rameshwar's Clinic - Chat Widget Embed</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .demo-content {
+            text-align: center;
+            color: white;
+            z-index: 1;
+        }
+        
+        .demo-content h1 {
+            font-size: 2.5rem;
+            margin-bottom: 1rem;
+            text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+        }
+        
+        .demo-content p {
+            font-size: 1.2rem;
+            opacity: 0.9;
+        }
+    </style>
+</head>
+<body>
+    <div class="demo-content">
+        <h1>Dr. Rameshwar's Clinic</h1>
+        <p>Click the chat bubble in the bottom-right corner to start chatting with our AI assistant!</p>
+    </div>
+    
+    <!-- Chat Widget Container -->
+    <div id="chat-widget-container"></div>
+    
+    <!-- React and Firebase CDN -->
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js"></script>
+    
+    <!-- Chat Widget Script -->
+    <script>
+        // Firebase Configuration
+        const firebaseConfig = {
+            apiKey: "AIzaSyBXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX", // Replace with your actual API key
+            authDomain: "appoinment-f51c1.firebaseapp.com",
+            databaseURL: "https://appoinment-f51c1-default-rtdb.firebaseio.com",
+            projectId: "appoinment-f51c1",
+            storageBucket: "appoinment-f51c1.appspot.com",
+            messagingSenderId: "123456789012",
+            appId: "1:123456789012:web:abcdefghijklmnop"
+        };
+
+        // n8n Webhook URL
+        const N8N_WEBHOOK_URL = "https://dr-rameshwar-appointment-gahmdwcjg2gjdwbh.centralindia-01.azurewebsites.net/webhook/8dfdf952-bc16-44c1-b436-709a0e94d524/chat";
+
+        // Initialize Firebase
+        firebase.initializeApp(firebaseConfig);
+        const database = firebase.database();
+
+        // Chat Widget Component
+        const { useState, useEffect, useRef } = React;
+
+        const ChatWidget = () => {
+            const [isOpen, setIsOpen] = useState(false);
+            const [messages, setMessages] = useState([]);
+            const [inputValue, setInputValue] = useState('');
+            const [isLoading, setIsLoading] = useState(false);
+            const [connectionStatus, setConnectionStatus] = useState('connected');
+            const messagesEndRef = useRef(null);
+            const sessionIdRef = useRef(null);
+
+            // Generate or retrieve session ID
+            const getSessionId = () => {
+                if (!sessionIdRef.current) {
+                    const storedSessionId = localStorage.getItem('sessionId');
+                    if (storedSessionId) {
+                        sessionIdRef.current = storedSessionId;
+                    } else {
+                        // Generate a 32-character random string
+                        const newSessionId = Math.random().toString(36).substring(2, 15) + 
+                                           Math.random().toString(36).substring(2, 15);
+                        sessionIdRef.current = newSessionId;
+                        localStorage.setItem('sessionId', newSessionId);
+                    }
+                }
+                return sessionIdRef.current;
+            };
+
+            // Initialize chat with bot greeting
+            useEffect(() => {
+                const initialMessages = [
+                    {
+                        id: 1,
+                        sender: 'bot',
+                        text: 'Namaste! 🙏 Main Dr. Rameshwar ka AI Assistant hoon\nHow can I help you today? 🤖',
+                        timestamp: new Date()
+                    }
+                ];
+                setMessages(initialMessages);
+            }, []);
+
+            // Set up Firebase listener
+            useEffect(() => {
+                const sessionId = getSessionId();
+                if (!sessionId) return;
+
+                try {
+                    const messageRef = database.ref(`User/${sessionId}`);
+                    const unsubscribe = messageRef.on('value', (snapshot) => {
+                        const data = snapshot.val();
+                        if (data && data.message) {
+                            addMessageToChat({
+                                sender: 'bot',
+                                text: data.message,
+                                timestamp: new Date()
+                            });
+                        }
+                    });
+
+                    return () => unsubscribe();
+                } catch (error) {
+                    console.error('Firebase connection error:', error);
+                    setConnectionStatus('error');
+                }
+            }, []);
+
+            // Auto-scroll to bottom when new messages arrive
+            useEffect(() => {
+                scrollToBottom();
+            }, [messages]);
+
+            const scrollToBottom = () => {
+                messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+            };
+
+            const addMessageToChat = (message) => {
+                const newMessage = {
+                    id: Date.now() + Math.random(),
+                    ...message,
+                    timestamp: message.timestamp || new Date()
+                };
+                setMessages(prev => [...prev, newMessage]);
+            };
+
+            const sendMessage = async (text) => {
+                if (!text.trim()) return;
+
+                const userMessage = {
+                    sender: 'user',
+                    text: text.trim(),
+                    timestamp: new Date()
+                };
+
+                addMessageToChat(userMessage);
+                setInputValue('');
+                setIsLoading(true);
+
+                try {
+                    const sessionId = getSessionId();
+                    const payload = [{
+                        sessionId: sessionId,
+                        action: "sendMessage",
+                        chatInput: text.trim()
+                    }];
+
+                    console.log('Sending to n8n:', payload); // Debug log
+
+                    const response = await fetch(N8N_WEBHOOK_URL, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify(payload)
+                    });
+
+                    console.log('Response status:', response.status); // Debug log
+
+                    if (!response.ok) {
+                        const errorText = await response.text();
+                        console.error('n8n Error Response:', errorText);
+                        throw new Error(`HTTP error! status: ${response.status}, message: ${errorText}`);
+                    }
+
+                    let data;
+                    const contentType = response.headers.get('content-type');
+                    
+                    if (contentType && contentType.includes('application/json')) {
+                        data = await response.json();
+                    } else {
+                        // Handle non-JSON response
+                        const textResponse = await response.text();
+                        console.log('n8n Text Response:', textResponse);
+                        data = { message: textResponse };
+                    }
+                    
+                    console.log('n8n Response:', data); // Debug log
+                    
+                    // Handle different response formats from n8n
+                    let botMessage = null;
+                    
+                    if (data && data.reply) {
+                        botMessage = data.reply;
+                    } else if (data && data.message) {
+                        botMessage = data.message;
+                    } else if (data && data.text) {
+                        botMessage = data.text;
+                    } else if (data && data.response) {
+                        botMessage = data.response;
+                    } else if (typeof data === 'string') {
+                        botMessage = data;
+                    } else if (Array.isArray(data) && data.length > 0) {
+                        // Handle array response
+                        const firstItem = data[0];
+                        if (firstItem.reply) {
+                            botMessage = firstItem.reply;
+                        } else if (firstItem.message) {
+                            botMessage = firstItem.message;
+                        } else if (firstItem.text) {
+                            botMessage = firstItem.text;
+                        } else if (typeof firstItem === 'string') {
+                            botMessage = firstItem;
+                        }
+                    }
+                    
+                    if (botMessage) {
+                        addMessageToChat({
+                            sender: 'bot',
+                            text: botMessage,
+                            timestamp: new Date()
+                        });
+                    } else {
+                        // If no recognizable response format, show the raw data for debugging
+                        addMessageToChat({
+                            sender: 'bot',
+                            text: `Response received: ${JSON.stringify(data)}`,
+                            timestamp: new Date()
+                        });
+                    }
+                } catch (error) {
+                    console.error('Error sending message:', error);
+                    addMessageToChat({
+                        sender: 'bot',
+                        text: '⚠️ Connection issue, please try again.',
+                        timestamp: new Date()
+                    });
+                    setConnectionStatus('error');
+                } finally {
+                    setIsLoading(false);
+                }
+            };
+
+            const handleSendMessage = (e) => {
+                e.preventDefault();
+                sendMessage(inputValue);
+            };
+
+            const handleQuickReply = (text) => {
+                sendMessage(text);
+            };
+
+            const toggleChat = () => {
+                setIsOpen(!isOpen);
+            };
+
+            return React.createElement('div', { className: 'chat-widget' }, [
+                // Floating Chat Bubble
+                React.createElement('div', { 
+                    key: 'bubble',
+                    className: 'chat-bubble', 
+                    onClick: toggleChat 
+                }, [
+                    React.createElement('div', { key: 'icon', className: 'chat-icon' }, 
+                        React.createElement('svg', { width: "24", height: "24", viewBox: "0 0 24 24", fill: "none" },
+                            React.createElement('path', { 
+                                d: "M20 2H4C2.9 2 2 2.9 2 4V22L6 18H20C21.1 18 22 17.1 22 16V4C22 2.9 21.1 2 20 2ZM20 16H5.17L4 17.17V4H20V16Z", 
+                                fill: "white" 
+                            })
+                        )
+                    ),
+                    !isOpen && React.createElement('div', { key: 'badge', className: 'notification-badge' }, '💬')
+                ]),
+
+                // Chat Window
+                React.createElement('div', { 
+                    key: 'window',
+                    className: `chat-window ${isOpen ? 'open' : ''}` 
+                }, [
+                    // Header
+                    React.createElement('div', { key: 'header', className: 'chat-header' }, [
+                        React.createElement('div', { key: 'header-content', className: 'header-content' }, [
+                            React.createElement('div', { key: 'avatar', className: 'bot-avatar' },
+                                React.createElement('svg', { width: "20", height: "20", viewBox: "0 0 24 24", fill: "none" },
+                                    React.createElement('path', { 
+                                        d: "M12 2C13.1 2 14 2.9 14 4C14 5.1 13.1 6 12 6C10.9 6 10 5.1 10 4C10 2.9 10.9 2 12 2ZM21 9V7L15 1H5C3.89 1 3 1.89 3 3V21C3 22.11 3.89 23 5 23H19C20.11 23 21 22.11 21 21V9M19 9H14V4L19 9Z", 
+                                        fill: "white" 
+                                    })
+                                )
+                            ),
+                            React.createElement('div', { key: 'header-text', className: 'header-text' }, [
+                                React.createElement('h3', { key: 'title' }, 'N8N Chat UI Bot'),
+                                React.createElement('div', { key: 'status', className: `status-indicator ${connectionStatus}` },
+                                    connectionStatus === 'connected' ? '🟢' : '🔴'
+                                )
+                            ])
+                        ]),
+                        React.createElement('button', { 
+                            key: 'close',
+                            className: 'close-btn', 
+                            onClick: toggleChat 
+                        }, 
+                            React.createElement('svg', { width: "16", height: "16", viewBox: "0 0 24 24", fill: "none" },
+                                React.createElement('path', { 
+                                    d: "M19 6.41L17.59 5L12 10.59L6.41 5L5 6.41L10.59 12L5 17.59L6.41 19L12 13.41L17.59 19L19 17.59L13.41 12L19 6.41Z", 
+                                    fill: "white" 
+                                })
+                            )
+                        )
+                    ]),
+
+                    // Messages Container
+                    React.createElement('div', { key: 'messages', className: 'messages-container' }, [
+                        ...messages.map((message) => 
+                            React.createElement('div', { 
+                                key: message.id, 
+                                className: `message ${message.sender}` 
+                            }, 
+                                React.createElement('div', { className: 'message-bubble' }, [
+                                    React.createElement('div', { key: 'text', className: 'message-text' },
+                                        message.text.split('\n').map((line, index) => 
+                                            React.createElement('div', { key: index }, line)
+                                        )
+                                    ),
+                                    React.createElement('div', { key: 'time', className: 'message-time' },
+                                        message.timestamp.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})
+                                    )
+                                ])
+                            )
+                        ),
+                        
+                        // Quick Reply Buttons (only show for first bot message)
+                        messages.length === 1 && React.createElement('div', { key: 'quick-replies', className: 'quick-replies' }, [
+                            React.createElement('button', { 
+                                key: 'reply1',
+                                className: 'quick-reply-btn',
+                                onClick: () => handleQuickReply('I Want Appointment')
+                            }, 'I Want Appointment'),
+                            React.createElement('button', { 
+                                key: 'reply2',
+                                className: 'quick-reply-btn',
+                                onClick: () => handleQuickReply('Mujhe Appointment Book Chahiye')
+                            }, 'Mujhe Appointment Book Chahiye')
+                        ]),
+
+                        isLoading && React.createElement('div', { key: 'typing', className: 'message bot' },
+                            React.createElement('div', { className: 'message-bubble' },
+                                React.createElement('div', { className: 'typing-indicator' }, [
+                                    React.createElement('span', { key: 'dot1' }),
+                                    React.createElement('span', { key: 'dot2' }),
+                                    React.createElement('span', { key: 'dot3' })
+                                ])
+                            )
+                        ),
+                        
+                        React.createElement('div', { key: 'scroll', ref: messagesEndRef })
+                    ]),
+
+                    // Input
+                    React.createElement('form', { 
+                        key: 'input',
+                        className: 'chat-input', 
+                        onSubmit: handleSendMessage 
+                    }, [
+                        React.createElement('input', {
+                            key: 'text-input',
+                            type: 'text',
+                            value: inputValue,
+                            onChange: (e) => setInputValue(e.target.value),
+                            placeholder: 'Send a message...',
+                            disabled: isLoading
+                        }),
+                        React.createElement('button', { 
+                            key: 'send-btn',
+                            type: 'submit', 
+                            disabled: isLoading || !inputValue.trim() 
+                        }, 
+                            React.createElement('svg', { width: "20", height: "20", viewBox: "0 0 24 24", fill: "none" },
+                                React.createElement('path', { 
+                                    d: "M2.01 21L23 12L2.01 3L2 10L17 12L2 14L2.01 21Z", 
+                                    fill: "currentColor" 
+                                })
+                            )
+                        )
+                    ])
+                ])
+            ]);
+        };
+
+        // CSS Styles
+        const styles = `
+            .chat-widget {
+                position: fixed;
+                bottom: 20px;
+                right: 20px;
+                z-index: 1000;
+                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', sans-serif;
+            }
+
+            .chat-bubble {
+                width: 60px;
+                height: 60px;
+                background: linear-gradient(135deg, #8B5CF6, #7C3AED);
+                border-radius: 50%;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                cursor: pointer;
+                box-shadow: 0 4px 20px rgba(139, 92, 246, 0.4);
+                transition: all 0.3s ease;
+                position: relative;
+            }
+
+            .chat-bubble:hover {
+                transform: scale(1.1);
+                box-shadow: 0 6px 25px rgba(139, 92, 246, 0.6);
+            }
+
+            .chat-icon {
+                color: white;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+            }
+
+            .notification-badge {
+                position: absolute;
+                top: -5px;
+                right: -5px;
+                background: #EF4444;
+                color: white;
+                border-radius: 50%;
+                width: 20px;
+                height: 20px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                font-size: 12px;
+                animation: pulse 2s infinite;
+            }
+
+            @keyframes pulse {
+                0% { transform: scale(1); }
+                50% { transform: scale(1.1); }
+                100% { transform: scale(1); }
+            }
+
+            .chat-window {
+                position: absolute;
+                bottom: 80px;
+                right: 0;
+                width: 350px;
+                height: 500px;
+                background: white;
+                border-radius: 16px;
+                box-shadow: 0 10px 40px rgba(0, 0, 0, 0.15);
+                display: flex;
+                flex-direction: column;
+                transform: translateY(20px) scale(0.95);
+                opacity: 0;
+                visibility: hidden;
+                transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+                overflow: hidden;
+            }
+
+            .chat-window.open {
+                transform: translateY(0) scale(1);
+                opacity: 1;
+                visibility: visible;
+            }
+
+            .chat-header {
+                background: linear-gradient(135deg, #8B5CF6, #7C3AED);
+                color: white;
+                padding: 16px 20px;
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                border-radius: 16px 16px 0 0;
+            }
+
+            .header-content {
+                display: flex;
+                align-items: center;
+                gap: 12px;
+            }
+
+            .bot-avatar {
+                width: 36px;
+                height: 36px;
+                background: rgba(255, 255, 255, 0.2);
+                border-radius: 50%;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+            }
+
+            .header-text h3 {
+                margin: 0;
+                font-size: 16px;
+                font-weight: 600;
+            }
+
+            .status-indicator {
+                font-size: 12px;
+                margin-top: 2px;
+            }
+
+            .close-btn {
+                background: none;
+                border: none;
+                color: white;
+                cursor: pointer;
+                padding: 4px;
+                border-radius: 4px;
+                transition: background-color 0.2s;
+            }
+
+            .close-btn:hover {
+                background: rgba(255, 255, 255, 0.1);
+            }
+
+            .messages-container {
+                flex: 1;
+                padding: 16px;
+                overflow-y: auto;
+                display: flex;
+                flex-direction: column;
+                gap: 12px;
+            }
+
+            .message {
+                display: flex;
+                animation: messageSlideIn 0.3s ease-out;
+            }
+
+            @keyframes messageSlideIn {
+                from {
+                    opacity: 0;
+                    transform: translateY(10px);
+                }
+                to {
+                    opacity: 1;
+                    transform: translateY(0);
+                }
+            }
+
+            .message.user {
+                justify-content: flex-end;
+            }
+
+            .message.bot {
+                justify-content: flex-start;
+            }
+
+            .message-bubble {
+                max-width: 80%;
+                padding: 12px 16px;
+                border-radius: 18px;
+                position: relative;
+            }
+
+            .message.user .message-bubble {
+                background: #F3F4F6;
+                color: #374151;
+                border-bottom-right-radius: 4px;
+            }
+
+            .message.bot .message-bubble {
+                background: linear-gradient(135deg, #8B5CF6, #7C3AED);
+                color: white;
+                border-bottom-left-radius: 4px;
+            }
+
+            .message-text {
+                font-size: 14px;
+                line-height: 1.4;
+                white-space: pre-wrap;
+            }
+
+            .message-time {
+                font-size: 11px;
+                opacity: 0.7;
+                margin-top: 4px;
+            }
+
+            .quick-replies {
+                display: flex;
+                flex-direction: column;
+                gap: 8px;
+                margin-top: 8px;
+            }
+
+            .quick-reply-btn {
+                background: #F3F4F6;
+                border: 1px solid #E5E7EB;
+                border-radius: 20px;
+                padding: 8px 16px;
+                font-size: 13px;
+                color: #374151;
+                cursor: pointer;
+                transition: all 0.2s;
+                text-align: left;
+            }
+
+            .quick-reply-btn:hover {
+                background: #E5E7EB;
+                border-color: #D1D5DB;
+            }
+
+            .typing-indicator {
+                display: flex;
+                gap: 4px;
+                align-items: center;
+            }
+
+            .typing-indicator span {
+                width: 6px;
+                height: 6px;
+                background: rgba(255, 255, 255, 0.7);
+                border-radius: 50%;
+                animation: typing 1.4s infinite;
+            }
+
+            .typing-indicator span:nth-child(2) {
+                animation-delay: 0.2s;
+            }
+
+            .typing-indicator span:nth-child(3) {
+                animation-delay: 0.4s;
+            }
+
+            @keyframes typing {
+                0%, 60%, 100% {
+                    transform: translateY(0);
+                    opacity: 0.7;
+                }
+                30% {
+                    transform: translateY(-10px);
+                    opacity: 1;
+                }
+            }
+
+            .chat-input {
+                display: flex;
+                align-items: center;
+                padding: 16px;
+                background: #F9FAFB;
+                border-top: 1px solid #E5E7EB;
+                gap: 8px;
+            }
+
+            .chat-input input {
+                flex: 1;
+                border: 1px solid #D1D5DB;
+                border-radius: 20px;
+                padding: 10px 16px;
+                font-size: 14px;
+                outline: none;
+                transition: border-color 0.2s;
+            }
+
+            .chat-input input:focus {
+                border-color: #8B5CF6;
+                box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.1);
+            }
+
+            .chat-input input::placeholder {
+                color: #9CA3AF;
+            }
+
+            .chat-input button {
+                background: linear-gradient(135deg, #8B5CF6, #7C3AED);
+                border: none;
+                border-radius: 50%;
+                width: 40px;
+                height: 40px;
+                color: white;
+                cursor: pointer;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                transition: all 0.2s;
+            }
+
+            .chat-input button:hover:not(:disabled) {
+                transform: scale(1.05);
+                box-shadow: 0 4px 12px rgba(139, 92, 246, 0.4);
+            }
+
+            .chat-input button:disabled {
+                opacity: 0.5;
+                cursor: not-allowed;
+            }
+
+            .status-indicator.connected {
+                color: #10B981;
+            }
+
+            .status-indicator.error {
+                color: #EF4444;
+            }
+
+            @media (max-width: 480px) {
+                .chat-window {
+                    width: calc(100vw - 40px);
+                    height: calc(100vh - 100px);
+                    bottom: 10px;
+                    right: 10px;
+                    left: 10px;
+                }
+            }
+        `;
+
+        // Add styles to head
+        const styleSheet = document.createElement('style');
+        styleSheet.textContent = styles;
+        document.head.appendChild(styleSheet);
+
+        // Render the chat widget
+        const root = ReactDOM.createRoot(document.getElementById('chat-widget-container'));
+        root.render(React.createElement(ChatWidget));
+    </script>
+</body>
+</html>
