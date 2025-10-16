@@ -116,11 +116,27 @@ const ChatWidget = () => {
           // Mark message as processed
           processedMessageIds.current.add(messageId);
           
+          // Handle timestamp properly to avoid "Invalid Date"
+          let timestamp = new Date();
+          if (messageData.time) {
+            console.log('📅 Firebase timestamp received:', messageData.time, 'Type:', typeof messageData.time);
+            // Try to parse the timestamp, fallback to current time if invalid
+            const parsedTime = new Date(messageData.time);
+            console.log('📅 Parsed timestamp:', parsedTime, 'Valid:', !isNaN(parsedTime.getTime()));
+            if (!isNaN(parsedTime.getTime())) {
+              timestamp = parsedTime;
+            } else {
+              console.log('⚠️ Invalid timestamp from Firebase, using current time');
+            }
+          } else {
+            console.log('📅 No timestamp in Firebase message, using current time');
+          }
+          
           const newMessage = {
             id: messageId,
             sender: messageData.from || 'bot',
             text: messageData.text,
-            timestamp: messageData.time ? new Date(messageData.time) : new Date()
+            timestamp: timestamp
           };
           
           console.log('➕ Adding new message to chat:', newMessage);
@@ -357,7 +373,7 @@ const ChatWidget = () => {
           <div className="header-content">
             <div className="bot-avatar">
               <img 
-                src="/images/dr-rameshwar.jpg" 
+                src={process.env.PUBLIC_URL + "/images/dr-rameshwar.jpg"} 
                 alt="Dr. Rameshwar Kumar" 
                 style={{
                   width: '100%',
@@ -366,6 +382,7 @@ const ChatWidget = () => {
                   objectFit: 'cover'
                 }}
                 onError={(e) => {
+                  console.log('Header avatar image failed to load:', e.target.src);
                   // Fallback to a default avatar if image not found
                   e.target.style.display = 'none';
                   e.target.parentElement.innerHTML = `
@@ -373,6 +390,9 @@ const ChatWidget = () => {
                       <path d="M12 12C14.21 12 16 10.21 16 8C16 5.79 14.21 4 12 4C9.79 4 8 5.79 8 8C8 10.21 9.79 12 12 12ZM12 14C9.33 14 4 15.34 4 18V20H20V18C20 15.34 14.67 14 12 14Z" fill="white"/>
                     </svg>
                   `;
+                }}
+                onLoad={() => {
+                  console.log('Header avatar image loaded successfully');
                 }}
               />
             </div>

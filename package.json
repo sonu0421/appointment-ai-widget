@@ -2,12 +2,15 @@
   "name": "hospital-chat-widget",
   "version": "1.0.0",
   "description": "Floating chat widget for Dr. Rameshwar's clinic with n8n and Firebase integration",
+  "homepage": "https://sonu0421.github.io/appointment-ai-widget",
   "main": "index.js",
   "scripts": {
     "start": "react-scripts start",
     "build": "react-scripts build",
     "test": "react-scripts test",
-    "eject": "react-scripts eject"
+    "eject": "react-scripts eject",
+    "predeploy": "npm run build",
+    "deploy": "gh-pages -d build"
   },
   "dependencies": {
     "firebase": "^10.14.1",
@@ -26,5 +29,8 @@
       "last 1 firefox version",
       "last 1 safari version"
     ]
+  },
+  "devDependencies": {
+    "gh-pages": "^6.3.0"
   }
 }
