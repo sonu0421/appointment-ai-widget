@@ -4,15 +4,15 @@
   
   // Configuration
   const config = {
-    apiUrl: 'https://your-n8n-webhook-url.com/webhook/chat',
+    apiUrl: 'https://dr-rameshwar-appointment-gahmdwcjg2gjdwbh.centralindia-01.azurewebsites.net/webhook/8dfdf952-bc16-44c1-b436-709a0e94d524/chat',
     firebaseConfig: {
-      apiKey: "AIzaSyBxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
-      authDomain: "your-project.firebaseapp.com",
-      databaseURL: "https://your-project-default-rtdb.firebaseio.com",
-      projectId: "your-project",
-      storageBucket: "your-project.appspot.com",
-      messagingSenderId: "123456789",
-      appId: "1:123456789:web:abcdef123456"
+      apiKey: "AIzaSyDwZaE1mxthNNoBROjjIff8-DmqRF05Bvg",
+      authDomain: "appoinment-f51c1.firebaseapp.com",
+      databaseURL: "https://appoinment-f51c1-default-rtdb.firebaseio.com",
+      projectId: "appoinment-f51c1",
+      storageBucket: "appoinment-f51c1.firebasestorage.app",
+      messagingSenderId: "166794843017",
+      appId: "1:166794843017:web:1a8268863e4cc1bf0b8758"
     }
   };
 
@@ -376,17 +376,47 @@
       <div class="message ${msg.sender}">
         <div class="message-bubble">
           <div class="message-text">${formatMessageText(msg.text)}</div>
-          <div class="message-time">${msg.timestamp.toLocaleTimeString()}</div>
+          <div class="message-time">${msg.timestamp && !isNaN(msg.timestamp.getTime()) 
+            ? msg.timestamp.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})
+            : new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})
+          }</div>
         </div>
       </div>
     `).join('');
   };
 
-  // Format message text (make links clickable)
+  // Format message text (make links clickable and handle formatting)
   const formatMessageText = (text) => {
-    // Make URLs clickable
-    const urlRegex = /(https?:\/\/[^\s]+)/g;
-    return text.replace(urlRegex, '<a href="$1" target="_blank" style="color: #007AFF; text-decoration: underline;">$1</a>');
+    // Function to clean URL by removing trailing punctuation
+    const cleanUrl = (url) => {
+      return url.replace(/[.,!?]+$/, '');
+    };
+    
+    // Function to format confirmation messages with better structure
+    const formatConfirmationMessage = (text) => {
+      return text
+        .replace(/✅ Payment Received Successfully!/, '✅ <strong>Payment Received Successfully!</strong><br><br>')
+        .replace(/Hello\s+([A-Za-z\s]+)👋,/, 'Hello <strong>$1</strong>👋,<br>')
+        .replace(/Your online consultation with Dr\. Rameshwer is confirmed\./, 'Your online consultation with <strong>Dr. Rameshwer</strong> is confirmed.')
+        .replace(/🗓 Date & Time:/, '<br>🗓 <strong>Date & Time:</strong>')
+        .replace(/🔗🔗 Zoom Link:/, '<br>🔗 <strong>Zoom Link:</strong>')
+        .replace(/🔗 Zoom Link:/, '<br>🔗 <strong>Zoom Link:</strong>');
+    };
+    
+    // Apply confirmation message formatting
+    let formattedText = formatConfirmationMessage(text);
+    
+    // Make URLs clickable with proper cleaning
+    const urlRegex = /(https?:\/\/[^\s]+?)(?=\s|$)/g;
+    formattedText = formattedText.replace(urlRegex, (match) => {
+      const cleanLink = cleanUrl(match);
+      return `<a href="${cleanLink}" target="_blank" style="color: #007AFF; text-decoration: underline; word-break: break-all;">${cleanLink}</a>`;
+    });
+    
+    // Convert line breaks to HTML
+    formattedText = formattedText.replace(/\n/g, '<br>');
+    
+    return formattedText;
   };
 
   // Scroll to bottom
@@ -444,8 +474,81 @@
 
   // Initialize Firebase
   const initializeFirebase = () => {
-    // Firebase will be initialized here
-    console.log('Firebase integration ready');
+    try {
+      // Firebase configuration
+      const firebaseConfig = {
+        apiKey: "AIzaSyDwZaE1mxthNNoBROjjIff8-DmqRF05Bvg",
+        authDomain: "appoinment-f51c1.firebaseapp.com",
+        databaseURL: "https://appoinment-f51c1-default-rtdb.firebaseio.com",
+        projectId: "appoinment-f51c1",
+        storageBucket: "appoinment-f51c1.appspot.com",
+        messagingSenderId: "123456789",
+        appId: "1:123456789:web:abcdef123456"
+      };
+      
+      // Initialize Firebase
+      if (typeof firebase !== 'undefined') {
+        firebase.initializeApp(firebaseConfig);
+        const database = firebase.database();
+        
+        // Set up Firebase listener
+        const sessionId = getSessionId();
+        if (sessionId) {
+          const messageRef = database.ref(`User/${sessionId}`);
+          console.log('Setting up Firebase listener for path:', `User/${sessionId}`);
+          
+          messageRef.on('child_added', (snapshot) => {
+            const messageData = snapshot.val();
+            const messageId = snapshot.key;
+            console.log('🆕 New Firebase message received:', messageData);
+            
+            if (messageData && messageData.text) {
+              // Handle timestamp properly to avoid "Invalid Date"
+              let timestamp = new Date();
+              if (messageData.time) {
+                console.log('📅 Firebase timestamp received:', messageData.time, 'Type:', typeof messageData.time);
+                const parsedTime = new Date(messageData.time);
+                console.log('📅 Parsed timestamp:', parsedTime, 'Valid:', !isNaN(parsedTime.getTime()));
+                if (!isNaN(parsedTime.getTime())) {
+                  timestamp = parsedTime;
+                } else {
+                  console.log('⚠️ Invalid timestamp from Firebase, using current time');
+                }
+              } else {
+                console.log('📅 No timestamp in Firebase message, using current time');
+              }
+              
+              const newMessage = {
+                id: messageId,
+                sender: messageData.from || 'bot',
+                text: messageData.text,
+                timestamp: timestamp
+              };
+              
+              console.log('➕ Adding new message to chat:', newMessage);
+              addMessageToChat(newMessage);
+              
+              // Stop loading when Firebase message arrives
+              console.log('✅ Firebase response received, stopping loading...');
+              isWaitingForFirebase = false;
+              isLoading = false;
+              document.getElementById('typingIndicator').style.display = 'none';
+            }
+          }, (error) => {
+            console.error('🚨 Firebase listener error:', error);
+            addMessageToChat({
+              sender: 'bot',
+              text: '⚠️ Connection lost. Please check your network.',
+              timestamp: new Date()
+            });
+          });
+        }
+      } else {
+        console.warn('Firebase SDK not loaded');
+      }
+    } catch (error) {
+      console.error('Firebase initialization error:', error);
+    }
   };
 
   // Initialize widget
