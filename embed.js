@@ -34,6 +34,24 @@
   })();
   const ASSET_BASE = scriptEl ? (new URL(scriptEl.src).origin + new URL(scriptEl.src).pathname.replace(/[^/]+$/, '')) : '';
 
+  // Load Firebase SDK dynamically if not present
+  const loadFirebaseSdk = () => new Promise((resolve, reject) => {
+    if (typeof firebase !== 'undefined') { resolve(); return; }
+    const appScript = document.createElement('script');
+    appScript.src = 'https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js';
+    appScript.async = true;
+    appScript.onload = () => {
+      const dbScript = document.createElement('script');
+      dbScript.src = 'https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js';
+      dbScript.async = true;
+      dbScript.onload = () => resolve();
+      dbScript.onerror = reject;
+      document.head.appendChild(dbScript);
+    };
+    appScript.onerror = reject;
+    document.head.appendChild(appScript);
+  });
+
   // Create widget container
   const createWidget = () => {
     const container = document.createElement('div');
@@ -45,7 +63,7 @@
             <path d="M20 2H4C2.9 2 2 2.9 2 4V22L6 18H20C21.1 18 22 17.1 22 16V4C22 2.9 21.1 2 20 2Z" fill="currentColor"/>
           </svg>
         </div>
-        <div class="chat-window" id="chatWindow">
+        <div class="chat-window" id="chatWindow" style="display: none;">
           <div class="chat-header">
             <div class="header-content">
               <img src="${ASSET_BASE}images/dr-rameshwar.jpg" alt="Dr Rameshwar Kumar" class="bot-avatar" onerror="this.style.display='none'">
@@ -56,21 +74,21 @@
             <button class="close-btn" onclick="toggleChat()">×</button>
           </div>
           <div class="messages-container" id="messagesContainer">
-            <div class="message bot">
+            <!-- Typing indicator (hidden by default) -->
+            <div id="typingIndicator" class="message bot" style="display: none;">
               <div class="message-bubble">
-                <div class="message-text">Hello! I'm Dr Rameshwar Kumar's AI Assistant. How can I help you today?</div>
-                <div class="message-time">${new Date().toLocaleTimeString()}</div>
+                <div class="typing-indicator">
+                  <span></span>
+                  <span></span>
+                  <span></span>
+                </div>
+                <div id="processingText" style="font-size: 12px; opacity: 0.7; margin-top: 4px; display: none;">Processing...</div>
               </div>
             </div>
           </div>
-          <div class="typing-indicator" id="typingIndicator" style="display: none;">
-            <span></span>
-            <span></span>
-            <span></span>
-          </div>
           <form class="chat-input" onsubmit="handleSendMessage(event)">
             <input type="text" placeholder="Send a message..." id="messageInput" autocomplete="off">
-            <button type="submit" class="send-btn">
+            <button type="submit" id="sendButton" class="send-btn">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
                 <path d="M2 21L23 12L2 3V10L17 12L2 14V21Z" fill="currentColor"/>
               </svg>
@@ -88,7 +106,7 @@
     style.textContent = `
       #chat-widget-container {
         position: fixed;
-        bottom: 20px;
+        bottom: calc(20px + env(safe-area-inset-bottom, 0px));
         right: 20px;
         z-index: 10000;
         font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
@@ -130,24 +148,32 @@
         width: 350px;
         height: 500px;
         background: white;
-        border-radius: 12px;
-        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+        border-radius: 16px;
+        box-shadow: 0 10px 40px rgba(0, 0, 0, 0.15);
         display: none;
         flex-direction: column;
+        transform: translateY(20px) scale(0.95);
+        opacity: 0;
+        visibility: hidden;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
         overflow: hidden;
       }
       
       #chat-widget-container .chat-window.open {
         display: flex;
+        transform: translateY(0) scale(1);
+        opacity: 1;
+        visibility: visible;
       }
       
       #chat-widget-container .chat-header {
         background: #007AFF;
         color: white;
-        padding: 16px;
+        padding: 16px 20px;
         display: flex;
         align-items: center;
         justify-content: space-between;
+        border-radius: 16px 16px 0 0;
       }
       
       #chat-widget-container .header-content {
@@ -187,7 +213,11 @@
         flex: 1;
         padding: 16px;
         overflow-y: auto;
-        background: #f8f9fa;
+        background: #fff;
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        align-items: stretch;
       }
       
       #chat-widget-container .message {
@@ -207,21 +237,34 @@
       
       #chat-widget-container .message-bubble {
         max-width: 80%;
-        padding: 12px 16px;
-        border-radius: 18px;
+        min-width: 60px;
+        padding: 10px 14px 4px 14px;
+        border-radius: 20px;
         position: relative;
+        word-wrap: break-word;
+        display: inline-block;
+        font-size: 14px;
+        line-height: 1.3;
       }
       
       #chat-widget-container .message.user .message-bubble {
         background: #007AFF;
         color: white;
         border-bottom-right-radius: 4px;
+        margin-left: auto;
+        margin-right: 0;
+        box-shadow: 0 2px 8px rgba(0, 122, 255, 0.3);
       }
       
       #chat-widget-container .message.bot .message-bubble {
         background: #F1F1F1;
         color: #333;
+        border: 1px solid #E5E7EB;
         border-bottom-left-radius: 4px;
+        margin-left: 0;
+        margin-right: auto;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        transition: all 0.2s ease;
       }
       
       #chat-widget-container .message-text {
@@ -232,8 +275,28 @@
       
       #chat-widget-container .message-time {
         font-size: 11px;
-        opacity: 0.7;
-        margin-top: 4px;
+        opacity: 0.6;
+        margin-top: 2px;
+        text-align: right;
+      }
+      /* Quick replies */
+      #chat-widget-container .quick-replies {
+        display: flex;
+        gap: 8px;
+        margin: 8px 0 0 0;
+        flex-wrap: wrap;
+      }
+      #chat-widget-container .quick-reply-btn {
+        background: #F3F4F6;
+        color: #111827;
+        border: 1px solid #E5E7EB;
+        border-radius: 9999px;
+        padding: 6px 12px;
+        font-size: 13px;
+        cursor: pointer;
+      }
+      #chat-widget-container .quick-reply-btn:hover {
+        background: #E5E7EB;
       }
       
       #chat-widget-container .typing-indicator {
@@ -267,24 +330,30 @@
       
       #chat-widget-container .chat-input {
         display: flex;
+        align-items: center;
         padding: 16px;
-        background: white;
-        border-top: 1px solid #e9ecef;
+        padding-bottom: calc(16px + env(safe-area-inset-bottom, 0px));
+        background: #F9FAFB;
+        border-top: 1px solid #E5E7EB;
+        gap: 8px;
       }
       
       #chat-widget-container .chat-input input {
         flex: 1;
-        border: 1px solid #ddd;
+        border: 1px solid #D1D5DB;
         border-radius: 20px;
-        padding: 12px 16px;
+        padding: 10px 16px;
         font-size: 14px;
         outline: none;
         transition: border-color 0.2s;
       }
       
       #chat-widget-container .chat-input input:focus {
-        border-color: #007AFF;
+        border-color: #8B5CF6;
+        box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.1);
       }
+
+      #chat-widget-container .chat-input input::placeholder { color: #9CA3AF; }
       
       #chat-widget-container .send-btn {
         background: #007AFF;
@@ -313,16 +382,21 @@
       /* Mobile responsive */
       @media (max-width: 768px) {
         #chat-widget-container .chat-window {
+          position: fixed;
+          top: 0;
+          left: 0;
           width: 100vw;
-          height: 100vh;
+          height: 100dvh; /* dynamic viewport for mobile */
+          max-height: 100dvh;
           bottom: 0;
           right: 0;
           border-radius: 0;
         }
-        
+
         #chat-widget-container {
           bottom: 0;
           right: 0;
+          left: 0;
         }
       }
     `;
@@ -336,7 +410,9 @@
     
     if (isOpen) {
       chatWindow.classList.remove('open');
+      chatWindow.style.display = 'none';
     } else {
+      chatWindow.style.display = 'flex';
       chatWindow.classList.add('open');
       document.getElementById('messageInput').focus();
     }
@@ -350,6 +426,13 @@
     if (message) {
       sendMessage(message);
       input.value = '';
+      // Keep input focused after sending
+      requestAnimationFrame(() => {
+        if (!input.disabled) {
+          input.focus();
+          input.click();
+        }
+      });
     }
   };
 
@@ -358,6 +441,8 @@
   let isLoading = false;
   let isWaitingForFirebase = false;
   let sessionId = null;
+  let quickRepliesRendered = false;
+  const processedMessageIds = new Set();
 
   // Generate session ID
   const generateSessionId = () => {
@@ -367,11 +452,21 @@
   // Get or create session ID
   const getSessionId = () => {
     if (!sessionId) {
-      sessionId = localStorage.getItem('chatSessionId') || generateSessionId();
-      localStorage.setItem('chatSessionId', sessionId);
+      sessionId = localStorage.getItem('sessionId') || generateSessionId();
+      localStorage.setItem('sessionId', sessionId);
     }
     return sessionId;
   };
+
+  // Reset session on full page refresh (match React behavior)
+  try {
+    const nav = (performance && performance.getEntriesByType) ? performance.getEntriesByType('navigation')[0] : null;
+    const isRefresh = (performance && performance.navigation && performance.navigation.type === 1) || (nav && nav.type === 'reload');
+    if (isRefresh) {
+      localStorage.removeItem('sessionId');
+      sessionId = null;
+    }
+  } catch (_) {}
 
   // Add message to chat
   const addMessageToChat = (message) => {
@@ -383,7 +478,7 @@
   // Render messages
   const renderMessages = () => {
     const container = document.getElementById('messagesContainer');
-    container.innerHTML = messages.map(msg => `
+    const html = messages.map(msg => `
       <div class="message ${msg.sender}">
         <div class="message-bubble">
           <div class="message-text">${formatMessageText(msg.text)}</div>
@@ -394,7 +489,32 @@
         </div>
       </div>
     `).join('');
+    container.innerHTML = html + (shouldShowQuickReplies() ? quickRepliesMarkup() : '');
+    // Ensure typing indicator stays last child (not overwritten)
+    const typingBlock = document.getElementById('typingIndicator');
+    if (typingBlock && typingBlock.parentElement !== container) {
+      container.appendChild(typingBlock);
+    }
   };
+
+  // Quick replies same as React widget (only after first bot message)
+  const shouldShowQuickReplies = () => {
+    if (quickRepliesRendered) return false;
+    return messages.length === 1 && messages[0].sender === 'bot';
+  };
+  const quickRepliesMarkup = () => {
+    quickRepliesRendered = true;
+    return `
+      <div class="quick-replies">
+        <button class="quick-reply-btn" onclick="window.__quickReply('I Want Appointment')">I Want Appointment</button>
+        <button class="quick-reply-btn" onclick="window.__quickReply('Mujhe Appointment Book Chahiye')">Mujhe Appointment Book Chahiye</button>
+      </div>
+    `;
+  };
+
+  window.__quickReply = function(text){
+    sendMessage(text);
+  }
 
   // Format message text (make links clickable and handle formatting)
   const formatMessageText = (text) => {
@@ -447,11 +567,9 @@
     };
     
     addMessageToChat(userMessage);
-    
-    // Show loading
-    isLoading = true;
-    isWaitingForFirebase = true;
-    document.getElementById('typingIndicator').style.display = 'flex';
+    // Show loading and typing UI
+    setLoading(true);
+    setProcessing(false);
     
     try {
       const response = await fetch(config.apiUrl, {
@@ -468,10 +586,57 @@
         ])
       });
 
-      if (response.ok) {
-        console.log('Message sent successfully');
-      } else {
+      if (!response.ok) {
         throw new Error('Failed to send message');
+      }
+
+      // Parse response like React widget
+      let data;
+      const contentType = response.headers.get('content-type');
+      if (contentType && contentType.includes('application/json')) {
+        data = await response.json();
+      } else {
+        const textResponse = await response.text();
+        data = { message: textResponse };
+      }
+
+      let botMessage = null;
+      if (data && data.reply) botMessage = data.reply;
+      else if (data && data.output) botMessage = data.output;
+      else if (data && data.text) botMessage = data.text;
+      else if (data && data.response) botMessage = data.response;
+      else if (typeof data === 'string') botMessage = data;
+      else if (Array.isArray(data) && data.length > 0) {
+        const first = data[0];
+        if (first.reply) botMessage = first.reply;
+        else if (first.message) botMessage = first.message;
+        else if (first.text) botMessage = first.text;
+        else if (typeof first === 'string') botMessage = first;
+      }
+
+      if (botMessage) {
+        addMessageToChat({ sender: 'bot', text: botMessage, timestamp: new Date() });
+        // If payment flow, wait for Firebase reply
+        if (/payment|razorpay|pay/i.test(botMessage)) {
+          isWaitingForFirebase = true;
+          setProcessing(true);
+          // Safety timeout 30s
+          setTimeout(() => {
+            if (isWaitingForFirebase) {
+              isWaitingForFirebase = false;
+              setProcessing(false);
+              setLoading(false);
+            }
+          }, 30000);
+        } else {
+          // Normal messages: stop loading now
+          setProcessing(false);
+          setLoading(false);
+        }
+      } else {
+        addMessageToChat({ sender: 'bot', text: `Response received: ${JSON.stringify(data)}`, timestamp: new Date() });
+        setProcessing(false);
+        setLoading(false);
       }
     } catch (error) {
       console.error('Error sending message:', error);
@@ -480,9 +645,9 @@
         text: 'Sorry, there was an error sending your message. Please try again.',
         timestamp: new Date()
       });
-      isLoading = false;
       isWaitingForFirebase = false;
-      document.getElementById('typingIndicator').style.display = 'none';
+      setProcessing(false);
+      setLoading(false);
     }
   };
 
@@ -506,7 +671,14 @@
             const messageId = snapshot.key;
             console.log('🆕 New Firebase message received:', messageData);
             
+            // Deduplicate Firebase messages
+            if (processedMessageIds.has(messageId)) {
+              console.log('⚠️ Message already processed, skipping:', messageId);
+              return;
+            }
+
             if (messageData && messageData.text) {
+              processedMessageIds.add(messageId);
               // Handle timestamp properly to avoid "Invalid Date"
               let timestamp = new Date();
               if (messageData.time) {
@@ -535,8 +707,8 @@
               // Stop loading when Firebase message arrives
               console.log('✅ Firebase response received, stopping loading...');
               isWaitingForFirebase = false;
-              isLoading = false;
-              document.getElementById('typingIndicator').style.display = 'none';
+              setProcessing(false);
+              setLoading(false);
             }
           }, (error) => {
             console.error('🚨 Firebase listener error:', error);
@@ -561,8 +733,72 @@
     const container = createWidget();
     document.body.appendChild(container);
     
+    // Seed initial greeting so quick replies render like React
+    try {
+      messages = [];
+      quickRepliesRendered = false;
+      addMessageToChat({
+        sender: 'bot',
+        text: 'Namaste! 🙏 Main Dr. Rameshwar ka AI Assistant hoon\nHow can I help you today? 🤖',
+        timestamp: new Date()
+      });
+    } catch(_) {}
+
     // Initialize Firebase and other functionality
-    initializeFirebase();
+    loadFirebaseSdk()
+      .then(() => initializeFirebase())
+      .catch((e) => {
+        console.error('Failed to load Firebase SDK:', e);
+      });
+
+    // Initialize input/button state and interactions
+    const input = document.getElementById('messageInput');
+    const btn = document.getElementById('sendButton');
+    if (btn && input) {
+      btn.disabled = !input.value.trim();
+      input.addEventListener('input', () => {
+        if (!isLoading) {
+          btn.disabled = !input.value.trim();
+        }
+      });
+    }
+
+    // Mobile keyboard handling: use visualViewport to keep input visible
+    try {
+      const chatWindow = document.getElementById('chatWindow');
+      const messagesEl = document.getElementById('messagesContainer');
+      const adjustForViewport = () => {
+        const vv = window.visualViewport;
+        if (vv && chatWindow) {
+          const height = Math.min(vv.height, window.innerHeight);
+          chatWindow.style.height = height + 'px';
+          chatWindow.style.maxHeight = height + 'px';
+        }
+        if (messagesEl) {
+          messagesEl.scrollTop = messagesEl.scrollHeight;
+        }
+      };
+      if (window.visualViewport) {
+        window.visualViewport.addEventListener('resize', adjustForViewport);
+        window.visualViewport.addEventListener('scroll', adjustForViewport);
+        adjustForViewport();
+      }
+      // Ensure input stays in view when focused and after send
+      const keepInputVisible = () => {
+        setTimeout(() => {
+          try { input.scrollIntoView({block: 'nearest', inline: 'nearest'}); } catch(_) {}
+          if (messagesEl) messagesEl.scrollTop = messagesEl.scrollHeight;
+        }, 100);
+      };
+      if (input) {
+        input.addEventListener('focus', keepInputVisible);
+      }
+      // Also when chat opens
+      const chatBubble = document.querySelector('#chat-widget .chat-bubble');
+      if (chatBubble) {
+        chatBubble.addEventListener('click', () => setTimeout(keepInputVisible, 200));
+      }
+    } catch (_) {}
   };
 
   // Initialize when DOM is ready
@@ -573,3 +809,27 @@
   }
 
 })();
+
+// UI helpers
+function setLoading(loading) {
+  try {
+    isLoading = loading;
+    const ti = document.getElementById('typingIndicator');
+    if (ti) ti.style.display = loading ? 'flex' : 'none';
+    const input = document.getElementById('messageInput');
+    const btn = document.getElementById('sendButton');
+    if (input) input.disabled = loading;
+    if (btn) btn.disabled = loading || (input && !input.value.trim());
+    if (!loading && input) {
+      // Restore focus when loading ends
+      setTimeout(() => { if (!input.disabled) input.focus(); }, 50);
+    }
+  } catch (_) {}
+}
+
+function setProcessing(waiting) {
+  try {
+    const p = document.getElementById('processingText');
+    if (p) p.style.display = waiting ? 'block' : 'none';
+  } catch (_) {}
+}

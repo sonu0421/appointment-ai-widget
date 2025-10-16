@@ -1,13 +1,13 @@
 {
   "files": {
     "main.css": "/appointment-ai-widget/static/css/main.40d15ba6.css",
-    "main.js": "/appointment-ai-widget/static/js/main.164dbed8.js",
+    "main.js": "/appointment-ai-widget/static/js/main.e007b125.js",
     "index.html": "/appointment-ai-widget/index.html",
     "main.40d15ba6.css.map": "/appointment-ai-widget/static/css/main.40d15ba6.css.map",
-    "main.164dbed8.js.map": "/appointment-ai-widget/static/js/main.164dbed8.js.map"
+    "main.e007b125.js.map": "/appointment-ai-widget/static/js/main.e007b125.js.map"
   },
   "entrypoints": [
     "static/css/main.40d15ba6.css",
-    "static/js/main.164dbed8.js"
+    "static/js/main.e007b125.js"
   ]
 }
