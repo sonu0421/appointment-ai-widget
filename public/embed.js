@@ -45,7 +45,7 @@
             <path d="M20 2H4C2.9 2 2 2.9 2 4V22L6 18H20C21.1 18 22 17.1 22 16V4C22 2.9 21.1 2 20 2Z" fill="currentColor"/>
           </svg>
         </div>
-        <div class="chat-window" id="chatWindow">
+        <div class="chat-window" id="chatWindow" style="display: none;">
           <div class="chat-header">
             <div class="header-content">
               <img src="${ASSET_BASE}images/dr-rameshwar.jpg" alt="Dr Rameshwar Kumar" class="bot-avatar" onerror="this.style.display='none'">
@@ -58,15 +58,10 @@
           <div class="messages-container" id="messagesContainer">
             <div class="message bot">
               <div class="message-bubble">
-                <div class="message-text">Hello! I'm Dr Rameshwar Kumar's AI Assistant. How can I help you today?</div>
-                <div class="message-time">${new Date().toLocaleTimeString()}</div>
+                <div class="message-text">Namaste! 🙏 Main Dr. Rameshwar ka AI Assistant hoon<br>How can I help you today? 🤖</div>
+                <div class="message-time">${new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</div>
               </div>
             </div>
-          </div>
-          <div class="typing-indicator" id="typingIndicator" style="display: none;">
-            <span></span>
-            <span></span>
-            <span></span>
           </div>
           <form class="chat-input" onsubmit="handleSendMessage(event)">
             <input type="text" placeholder="Send a message..." id="messageInput" autocomplete="off">
@@ -130,24 +125,32 @@
         width: 350px;
         height: 500px;
         background: white;
-        border-radius: 12px;
-        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+        border-radius: 16px;
+        box-shadow: 0 10px 40px rgba(0, 0, 0, 0.15);
         display: none;
         flex-direction: column;
+        transform: translateY(20px) scale(0.95);
+        opacity: 0;
+        visibility: hidden;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
         overflow: hidden;
       }
       
       #chat-widget-container .chat-window.open {
         display: flex;
+        transform: translateY(0) scale(1);
+        opacity: 1;
+        visibility: visible;
       }
       
       #chat-widget-container .chat-header {
         background: #007AFF;
         color: white;
-        padding: 16px;
+        padding: 16px 20px;
         display: flex;
         align-items: center;
         justify-content: space-between;
+        border-radius: 16px 16px 0 0;
       }
       
       #chat-widget-container .header-content {
@@ -187,7 +190,11 @@
         flex: 1;
         padding: 16px;
         overflow-y: auto;
-        background: #f8f9fa;
+        background: #fff;
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        align-items: stretch;
       }
       
       #chat-widget-container .message {
@@ -207,21 +214,34 @@
       
       #chat-widget-container .message-bubble {
         max-width: 80%;
-        padding: 12px 16px;
-        border-radius: 18px;
+        min-width: 60px;
+        padding: 10px 14px 4px 14px;
+        border-radius: 20px;
         position: relative;
+        word-wrap: break-word;
+        display: inline-block;
+        font-size: 14px;
+        line-height: 1.3;
       }
       
       #chat-widget-container .message.user .message-bubble {
         background: #007AFF;
         color: white;
         border-bottom-right-radius: 4px;
+        margin-left: auto;
+        margin-right: 0;
+        box-shadow: 0 2px 8px rgba(0, 122, 255, 0.3);
       }
       
       #chat-widget-container .message.bot .message-bubble {
         background: #F1F1F1;
         color: #333;
+        border: 1px solid #E5E7EB;
         border-bottom-left-radius: 4px;
+        margin-left: 0;
+        margin-right: auto;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        transition: all 0.2s ease;
       }
       
       #chat-widget-container .message-text {
@@ -232,8 +252,9 @@
       
       #chat-widget-container .message-time {
         font-size: 11px;
-        opacity: 0.7;
-        margin-top: 4px;
+        opacity: 0.6;
+        margin-top: 2px;
+        text-align: right;
       }
       
       #chat-widget-container .typing-indicator {
@@ -267,24 +288,29 @@
       
       #chat-widget-container .chat-input {
         display: flex;
+        align-items: center;
         padding: 16px;
-        background: white;
-        border-top: 1px solid #e9ecef;
+        background: #F9FAFB;
+        border-top: 1px solid #E5E7EB;
+        gap: 8px;
       }
       
       #chat-widget-container .chat-input input {
         flex: 1;
-        border: 1px solid #ddd;
+        border: 1px solid #D1D5DB;
         border-radius: 20px;
-        padding: 12px 16px;
+        padding: 10px 16px;
         font-size: 14px;
         outline: none;
         transition: border-color 0.2s;
       }
       
       #chat-widget-container .chat-input input:focus {
-        border-color: #007AFF;
+        border-color: #8B5CF6;
+        box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.1);
       }
+
+      #chat-widget-container .chat-input input::placeholder { color: #9CA3AF; }
       
       #chat-widget-container .send-btn {
         background: #007AFF;
@@ -336,7 +362,9 @@
     
     if (isOpen) {
       chatWindow.classList.remove('open');
+      chatWindow.style.display = 'none';
     } else {
+      chatWindow.style.display = 'flex';
       chatWindow.classList.add('open');
       document.getElementById('messageInput').focus();
     }
@@ -358,6 +386,7 @@
   let isLoading = false;
   let isWaitingForFirebase = false;
   let sessionId = null;
+  let quickRepliesRendered = false;
 
   // Generate session ID
   const generateSessionId = () => {
@@ -367,8 +396,8 @@
   // Get or create session ID
   const getSessionId = () => {
     if (!sessionId) {
-      sessionId = localStorage.getItem('chatSessionId') || generateSessionId();
-      localStorage.setItem('chatSessionId', sessionId);
+      sessionId = localStorage.getItem('sessionId') || generateSessionId();
+      localStorage.setItem('sessionId', sessionId);
     }
     return sessionId;
   };
@@ -383,7 +412,7 @@
   // Render messages
   const renderMessages = () => {
     const container = document.getElementById('messagesContainer');
-    container.innerHTML = messages.map(msg => `
+    const html = messages.map(msg => `
       <div class="message ${msg.sender}">
         <div class="message-bubble">
           <div class="message-text">${formatMessageText(msg.text)}</div>
@@ -394,7 +423,27 @@
         </div>
       </div>
     `).join('');
+    container.innerHTML = html + (shouldShowQuickReplies() ? quickRepliesMarkup() : '');
   };
+
+  // Quick replies same as React widget (only after first bot message)
+  const shouldShowQuickReplies = () => {
+    if (quickRepliesRendered) return false;
+    return messages.length === 1 && messages[0].sender === 'bot';
+  };
+  const quickRepliesMarkup = () => {
+    quickRepliesRendered = true;
+    return `
+      <div class="quick-replies">
+        <button class="quick-reply-btn" onclick="window.__quickReply('I Want Appointment')">I Want Appointment</button>
+        <button class="quick-reply-btn" onclick="window.__quickReply('Mujhe Appointment Book Chahiye')">Mujhe Appointment Book Chahiye</button>
+      </div>
+    `;
+  };
+
+  window.__quickReply = function(text){
+    sendMessage(text);
+  }
 
   // Format message text (make links clickable and handle formatting)
   const formatMessageText = (text) => {
