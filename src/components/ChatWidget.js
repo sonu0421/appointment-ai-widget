@@ -373,7 +373,7 @@ const ChatWidget = () => {
           <div className="header-content">
             <div className="bot-avatar">
               <img 
-                src={process.env.PUBLIC_URL + "/images/dr-rameshwar.jpg"} 
+                src={process.env.PUBLIC_URL + "https://github.com/sonu0421/appointment-ai-widget/blob/main/public/images/dr-rameshwar.jpg"} 
                 alt="Dr. Rameshwar Kumar" 
                 style={{
                   width: '100%',
