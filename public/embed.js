@@ -478,6 +478,7 @@
   // Render messages
   const renderMessages = () => {
     const container = document.getElementById('messagesContainer');
+    const existingTyping = document.getElementById('typingIndicator');
     const html = messages.map(msg => `
       <div class="message ${msg.sender}">
         <div class="message-bubble">
@@ -490,11 +491,25 @@
       </div>
     `).join('');
     container.innerHTML = html + (shouldShowQuickReplies() ? quickRepliesMarkup() : '');
-    // Ensure typing indicator stays last child (not overwritten)
-    const typingBlock = document.getElementById('typingIndicator');
-    if (typingBlock && typingBlock.parentElement !== container) {
-      container.appendChild(typingBlock);
+    // Ensure typing indicator exists and stays last child (not overwritten)
+    let typingBlock = existingTyping;
+    if (!typingBlock) {
+      typingBlock = document.createElement('div');
+      typingBlock.id = 'typingIndicator';
+      typingBlock.className = 'message bot';
+      typingBlock.style.display = 'none';
+      typingBlock.innerHTML = `
+        <div class="message-bubble">
+          <div class="typing-indicator">
+            <span></span>
+            <span></span>
+            <span></span>
+          </div>
+          <div id="processingText" style="font-size: 12px; opacity: 0.7; margin-top: 4px; display: none;">Processing...</div>
+        </div>
+      `;
     }
+    container.appendChild(typingBlock);
   };
 
   // Quick replies same as React widget (only after first bot message)
@@ -763,16 +778,23 @@
       });
     }
 
-    // Mobile keyboard handling: use visualViewport to keep input visible
+    // Mobile keyboard handling: use visualViewport to keep input visible (mobile only)
     try {
       const chatWindow = document.getElementById('chatWindow');
       const messagesEl = document.getElementById('messagesContainer');
       const adjustForViewport = () => {
         const vv = window.visualViewport;
-        if (vv && chatWindow) {
-          const height = Math.min(vv.height, window.innerHeight);
-          chatWindow.style.height = height + 'px';
-          chatWindow.style.maxHeight = height + 'px';
+        const isMobile = () => window.innerWidth <= 768;
+        if (chatWindow) {
+          if (vv && isMobile()) {
+            const height = Math.min(vv.height, window.innerHeight);
+            chatWindow.style.height = height + 'px';
+            chatWindow.style.maxHeight = height + 'px';
+          } else {
+            // Clear inline styles on desktop to use default CSS height
+            chatWindow.style.height = '';
+            chatWindow.style.maxHeight = '';
+          }
         }
         if (messagesEl) {
           messagesEl.scrollTop = messagesEl.scrollHeight;
@@ -781,8 +803,10 @@
       if (window.visualViewport) {
         window.visualViewport.addEventListener('resize', adjustForViewport);
         window.visualViewport.addEventListener('scroll', adjustForViewport);
-        adjustForViewport();
       }
+      // Also listen to window resize to toggle between mobile/desktop behavior
+      window.addEventListener('resize', adjustForViewport);
+      adjustForViewport();
       // Ensure input stays in view when focused and after send
       const keepInputVisible = () => {
         setTimeout(() => {
