@@ -34,6 +34,24 @@
   })();
   const ASSET_BASE = scriptEl ? (new URL(scriptEl.src).origin + new URL(scriptEl.src).pathname.replace(/[^/]+$/, '')) : '';
 
+  // Load Firebase SDK dynamically if not present
+  const loadFirebaseSdk = () => new Promise((resolve, reject) => {
+    if (typeof firebase !== 'undefined') { resolve(); return; }
+    const appScript = document.createElement('script');
+    appScript.src = 'https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js';
+    appScript.async = true;
+    appScript.onload = () => {
+      const dbScript = document.createElement('script');
+      dbScript.src = 'https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js';
+      dbScript.async = true;
+      dbScript.onload = () => resolve();
+      dbScript.onerror = reject;
+      document.head.appendChild(dbScript);
+    };
+    appScript.onerror = reject;
+    document.head.appendChild(appScript);
+  });
+
   // Create widget container
   const createWidget = () => {
     const container = document.createElement('div');
@@ -56,16 +74,21 @@
             <button class="close-btn" onclick="toggleChat()">×</button>
           </div>
           <div class="messages-container" id="messagesContainer">
-            <div class="message bot">
+            <!-- Typing indicator (hidden by default) -->
+            <div id="typingIndicator" class="message bot" style="display: none;">
               <div class="message-bubble">
-                <div class="message-text">Namaste! 🙏 Main Dr. Rameshwar ka AI Assistant hoon<br>How can I help you today? 🤖</div>
-                <div class="message-time">${new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</div>
+                <div class="typing-indicator">
+                  <span></span>
+                  <span></span>
+                  <span></span>
+                </div>
+                <div id="processingText" style="font-size: 12px; opacity: 0.7; margin-top: 4px; display: none;">Processing...</div>
               </div>
             </div>
           </div>
           <form class="chat-input" onsubmit="handleSendMessage(event)">
             <input type="text" placeholder="Send a message..." id="messageInput" autocomplete="off">
-            <button type="submit" class="send-btn">
+            <button type="submit" id="sendButton" class="send-btn">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
                 <path d="M2 21L23 12L2 3V10L17 12L2 14V21Z" fill="currentColor"/>
               </svg>
@@ -83,7 +106,7 @@
     style.textContent = `
       #chat-widget-container {
         position: fixed;
-        bottom: 20px;
+        bottom: calc(20px + env(safe-area-inset-bottom, 0px));
         right: 20px;
         z-index: 10000;
         font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
@@ -256,6 +279,25 @@
         margin-top: 2px;
         text-align: right;
       }
+      /* Quick replies */
+      #chat-widget-container .quick-replies {
+        display: flex;
+        gap: 8px;
+        margin: 8px 0 0 0;
+        flex-wrap: wrap;
+      }
+      #chat-widget-container .quick-reply-btn {
+        background: #F3F4F6;
+        color: #111827;
+        border: 1px solid #E5E7EB;
+        border-radius: 9999px;
+        padding: 6px 12px;
+        font-size: 13px;
+        cursor: pointer;
+      }
+      #chat-widget-container .quick-reply-btn:hover {
+        background: #E5E7EB;
+      }
       
       #chat-widget-container .typing-indicator {
         display: flex;
@@ -290,6 +332,7 @@
         display: flex;
         align-items: center;
         padding: 16px;
+        padding-bottom: calc(16px + env(safe-area-inset-bottom, 0px));
         background: #F9FAFB;
         border-top: 1px solid #E5E7EB;
         gap: 8px;
@@ -339,16 +382,21 @@
       /* Mobile responsive */
       @media (max-width: 768px) {
         #chat-widget-container .chat-window {
+          position: fixed;
+          top: 0;
+          left: 0;
           width: 100vw;
-          height: 100vh;
+          height: 100dvh; /* dynamic viewport for mobile */
+          max-height: 100dvh;
           bottom: 0;
           right: 0;
           border-radius: 0;
         }
-        
+
         #chat-widget-container {
           bottom: 0;
           right: 0;
+          left: 0;
         }
       }
     `;
@@ -378,6 +426,13 @@
     if (message) {
       sendMessage(message);
       input.value = '';
+      // Keep input focused after sending
+      requestAnimationFrame(() => {
+        if (!input.disabled) {
+          input.focus();
+          input.click();
+        }
+      });
     }
   };
 
@@ -387,6 +442,7 @@
   let isWaitingForFirebase = false;
   let sessionId = null;
   let quickRepliesRendered = false;
+  const processedMessageIds = new Set();
 
   // Generate session ID
   const generateSessionId = () => {
@@ -401,6 +457,16 @@
     }
     return sessionId;
   };
+
+  // Reset session on full page refresh (match React behavior)
+  try {
+    const nav = (performance && performance.getEntriesByType) ? performance.getEntriesByType('navigation')[0] : null;
+    const isRefresh = (performance && performance.navigation && performance.navigation.type === 1) || (nav && nav.type === 'reload');
+    if (isRefresh) {
+      localStorage.removeItem('sessionId');
+      sessionId = null;
+    }
+  } catch (_) {}
 
   // Add message to chat
   const addMessageToChat = (message) => {
@@ -424,6 +490,11 @@
       </div>
     `).join('');
     container.innerHTML = html + (shouldShowQuickReplies() ? quickRepliesMarkup() : '');
+    // Ensure typing indicator stays last child (not overwritten)
+    const typingBlock = document.getElementById('typingIndicator');
+    if (typingBlock && typingBlock.parentElement !== container) {
+      container.appendChild(typingBlock);
+    }
   };
 
   // Quick replies same as React widget (only after first bot message)
@@ -496,11 +567,9 @@
     };
     
     addMessageToChat(userMessage);
-    
-    // Show loading
-    isLoading = true;
-    isWaitingForFirebase = true;
-    document.getElementById('typingIndicator').style.display = 'flex';
+    // Show loading and typing UI
+    setLoading(true);
+    setProcessing(false);
     
     try {
       const response = await fetch(config.apiUrl, {
@@ -517,10 +586,57 @@
         ])
       });
 
-      if (response.ok) {
-        console.log('Message sent successfully');
-      } else {
+      if (!response.ok) {
         throw new Error('Failed to send message');
+      }
+
+      // Parse response like React widget
+      let data;
+      const contentType = response.headers.get('content-type');
+      if (contentType && contentType.includes('application/json')) {
+        data = await response.json();
+      } else {
+        const textResponse = await response.text();
+        data = { message: textResponse };
+      }
+
+      let botMessage = null;
+      if (data && data.reply) botMessage = data.reply;
+      else if (data && data.output) botMessage = data.output;
+      else if (data && data.text) botMessage = data.text;
+      else if (data && data.response) botMessage = data.response;
+      else if (typeof data === 'string') botMessage = data;
+      else if (Array.isArray(data) && data.length > 0) {
+        const first = data[0];
+        if (first.reply) botMessage = first.reply;
+        else if (first.message) botMessage = first.message;
+        else if (first.text) botMessage = first.text;
+        else if (typeof first === 'string') botMessage = first;
+      }
+
+      if (botMessage) {
+        addMessageToChat({ sender: 'bot', text: botMessage, timestamp: new Date() });
+        // If payment flow, wait for Firebase reply
+        if (/payment|razorpay|pay/i.test(botMessage)) {
+          isWaitingForFirebase = true;
+          setProcessing(true);
+          // Safety timeout 30s
+          setTimeout(() => {
+            if (isWaitingForFirebase) {
+              isWaitingForFirebase = false;
+              setProcessing(false);
+              setLoading(false);
+            }
+          }, 30000);
+        } else {
+          // Normal messages: stop loading now
+          setProcessing(false);
+          setLoading(false);
+        }
+      } else {
+        addMessageToChat({ sender: 'bot', text: `Response received: ${JSON.stringify(data)}`, timestamp: new Date() });
+        setProcessing(false);
+        setLoading(false);
       }
     } catch (error) {
       console.error('Error sending message:', error);
@@ -529,9 +645,9 @@
         text: 'Sorry, there was an error sending your message. Please try again.',
         timestamp: new Date()
       });
-      isLoading = false;
       isWaitingForFirebase = false;
-      document.getElementById('typingIndicator').style.display = 'none';
+      setProcessing(false);
+      setLoading(false);
     }
   };
 
@@ -555,7 +671,14 @@
             const messageId = snapshot.key;
             console.log('🆕 New Firebase message received:', messageData);
             
+            // Deduplicate Firebase messages
+            if (processedMessageIds.has(messageId)) {
+              console.log('⚠️ Message already processed, skipping:', messageId);
+              return;
+            }
+
             if (messageData && messageData.text) {
+              processedMessageIds.add(messageId);
               // Handle timestamp properly to avoid "Invalid Date"
               let timestamp = new Date();
               if (messageData.time) {
@@ -584,8 +707,8 @@
               // Stop loading when Firebase message arrives
               console.log('✅ Firebase response received, stopping loading...');
               isWaitingForFirebase = false;
-              isLoading = false;
-              document.getElementById('typingIndicator').style.display = 'none';
+              setProcessing(false);
+              setLoading(false);
             }
           }, (error) => {
             console.error('🚨 Firebase listener error:', error);
@@ -610,8 +733,72 @@
     const container = createWidget();
     document.body.appendChild(container);
     
+    // Seed initial greeting so quick replies render like React
+    try {
+      messages = [];
+      quickRepliesRendered = false;
+      addMessageToChat({
+        sender: 'bot',
+        text: 'Namaste! 🙏 Main Dr. Rameshwar ka AI Assistant hoon\nHow can I help you today? 🤖',
+        timestamp: new Date()
+      });
+    } catch(_) {}
+
     // Initialize Firebase and other functionality
-    initializeFirebase();
+    loadFirebaseSdk()
+      .then(() => initializeFirebase())
+      .catch((e) => {
+        console.error('Failed to load Firebase SDK:', e);
+      });
+
+    // Initialize input/button state and interactions
+    const input = document.getElementById('messageInput');
+    const btn = document.getElementById('sendButton');
+    if (btn && input) {
+      btn.disabled = !input.value.trim();
+      input.addEventListener('input', () => {
+        if (!isLoading) {
+          btn.disabled = !input.value.trim();
+        }
+      });
+    }
+
+    // Mobile keyboard handling: use visualViewport to keep input visible
+    try {
+      const chatWindow = document.getElementById('chatWindow');
+      const messagesEl = document.getElementById('messagesContainer');
+      const adjustForViewport = () => {
+        const vv = window.visualViewport;
+        if (vv && chatWindow) {
+          const height = Math.min(vv.height, window.innerHeight);
+          chatWindow.style.height = height + 'px';
+          chatWindow.style.maxHeight = height + 'px';
+        }
+        if (messagesEl) {
+          messagesEl.scrollTop = messagesEl.scrollHeight;
+        }
+      };
+      if (window.visualViewport) {
+        window.visualViewport.addEventListener('resize', adjustForViewport);
+        window.visualViewport.addEventListener('scroll', adjustForViewport);
+        adjustForViewport();
+      }
+      // Ensure input stays in view when focused and after send
+      const keepInputVisible = () => {
+        setTimeout(() => {
+          try { input.scrollIntoView({block: 'nearest', inline: 'nearest'}); } catch(_) {}
+          if (messagesEl) messagesEl.scrollTop = messagesEl.scrollHeight;
+        }, 100);
+      };
+      if (input) {
+        input.addEventListener('focus', keepInputVisible);
+      }
+      // Also when chat opens
+      const chatBubble = document.querySelector('#chat-widget .chat-bubble');
+      if (chatBubble) {
+        chatBubble.addEventListener('click', () => setTimeout(keepInputVisible, 200));
+      }
+    } catch (_) {}
   };
 
   // Initialize when DOM is ready
@@ -622,3 +809,27 @@
   }
 
 })();
+
+// UI helpers
+function setLoading(loading) {
+  try {
+    isLoading = loading;
+    const ti = document.getElementById('typingIndicator');
+    if (ti) ti.style.display = loading ? 'flex' : 'none';
+    const input = document.getElementById('messageInput');
+    const btn = document.getElementById('sendButton');
+    if (input) input.disabled = loading;
+    if (btn) btn.disabled = loading || (input && !input.value.trim());
+    if (!loading && input) {
+      // Restore focus when loading ends
+      setTimeout(() => { if (!input.disabled) input.focus(); }, 50);
+    }
+  } catch (_) {}
+}
+
+function setProcessing(waiting) {
+  try {
+    const p = document.getElementById('processingText');
+    if (p) p.style.display = waiting ? 'block' : 'none';
+  } catch (_) {}
+}
