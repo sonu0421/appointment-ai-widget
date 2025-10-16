@@ -10,9 +10,9 @@
       authDomain: "appoinment-f51c1.firebaseapp.com",
       databaseURL: "https://appoinment-f51c1-default-rtdb.firebaseio.com",
       projectId: "appoinment-f51c1",
-      storageBucket: "appoinment-f51c1.firebasestorage.app",
-      messagingSenderId: "166794843017",
-      appId: "1:166794843017:web:1a8268863e4cc1bf0b8758"
+      storageBucket: "appoinment-f51c1.appspot.com",
+      messagingSenderId: "123456789012",
+      appId: "1:123456789012:web:abcdefghijklmnop"
     }
   };
 
@@ -22,6 +22,17 @@
     return;
   }
   window.ChatWidgetLoaded = true;
+
+  // Determine asset base URL from this script location so images load on any host
+  const scriptEl = document.currentScript || (function(){
+    const scripts = document.getElementsByTagName('script');
+    for (let i = scripts.length - 1; i >= 0; i--) {
+      const s = scripts[i];
+      if (s.src && s.src.indexOf('embed.js') !== -1) return s;
+    }
+    return null;
+  })();
+  const ASSET_BASE = scriptEl ? (new URL(scriptEl.src).origin + new URL(scriptEl.src).pathname.replace(/[^/]+$/, '')) : '';
 
   // Create widget container
   const createWidget = () => {
@@ -37,7 +48,7 @@
         <div class="chat-window" id="chatWindow">
           <div class="chat-header">
             <div class="header-content">
-              <img src="/images/dr-rameshwar.jpg" alt="Dr Rameshwar Kumar" class="bot-avatar" onerror="this.style.display='none'">
+              <img src="${ASSET_BASE}images/dr-rameshwar.jpg" alt="Dr Rameshwar Kumar" class="bot-avatar" onerror="this.style.display='none'">
               <div class="header-info">
                 <h3>Dr Rameshwar Kumar AI Assistant</h3>
               </div>
@@ -83,11 +94,11 @@
         font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
       }
       
-      .chat-widget {
+      #chat-widget-container .chat-widget {
         position: relative;
       }
       
-      .chat-bubble {
+      #chat-widget-container .chat-bubble {
         width: 60px;
         height: 60px;
         background: #007AFF;
@@ -102,7 +113,7 @@
         transition: all 0.3s ease;
       }
       
-      .chat-bubble:hover {
+      #chat-widget-container .chat-bubble:hover {
         transform: scale(1.1);
         box-shadow: 0 6px 16px rgba(0, 122, 255, 0.4);
       }
@@ -112,7 +123,7 @@
         50% { transform: translateY(-10px); }
       }
       
-      .chat-window {
+      #chat-widget-container .chat-window {
         position: absolute;
         bottom: 80px;
         right: 0;
@@ -126,11 +137,11 @@
         overflow: hidden;
       }
       
-      .chat-window.open {
+      #chat-widget-container .chat-window.open {
         display: flex;
       }
       
-      .chat-header {
+      #chat-widget-container .chat-header {
         background: #007AFF;
         color: white;
         padding: 16px;
@@ -139,26 +150,26 @@
         justify-content: space-between;
       }
       
-      .header-content {
+      #chat-widget-container .header-content {
         display: flex;
         align-items: center;
         gap: 12px;
       }
       
-      .bot-avatar {
+      #chat-widget-container .bot-avatar {
         width: 40px;
         height: 40px;
         border-radius: 50%;
         object-fit: cover;
       }
       
-      .header-info h3 {
+      #chat-widget-container .header-info h3 {
         margin: 0;
         font-size: 16px;
         font-weight: 600;
       }
       
-      .close-btn {
+      #chat-widget-container .close-btn {
         background: none;
         border: none;
         color: white;
@@ -172,60 +183,60 @@
         justify-content: center;
       }
       
-      .messages-container {
+      #chat-widget-container .messages-container {
         flex: 1;
         padding: 16px;
         overflow-y: auto;
         background: #f8f9fa;
       }
       
-      .message {
+      #chat-widget-container .message {
         margin-bottom: 12px;
         display: flex;
         align-items: flex-end;
         gap: 8px;
       }
       
-      .message.user {
+      #chat-widget-container .message.user {
         justify-content: flex-end;
       }
       
-      .message.bot {
+      #chat-widget-container .message.bot {
         justify-content: flex-start;
       }
       
-      .message-bubble {
+      #chat-widget-container .message-bubble {
         max-width: 80%;
         padding: 12px 16px;
         border-radius: 18px;
         position: relative;
       }
       
-      .message.user .message-bubble {
+      #chat-widget-container .message.user .message-bubble {
         background: #007AFF;
         color: white;
         border-bottom-right-radius: 4px;
       }
       
-      .message.bot .message-bubble {
+      #chat-widget-container .message.bot .message-bubble {
         background: #F1F1F1;
         color: #333;
         border-bottom-left-radius: 4px;
       }
       
-      .message-text {
+      #chat-widget-container .message-text {
         font-size: 14px;
         line-height: 1.4;
         word-wrap: break-word;
       }
       
-      .message-time {
+      #chat-widget-container .message-time {
         font-size: 11px;
         opacity: 0.7;
         margin-top: 4px;
       }
       
-      .typing-indicator {
+      #chat-widget-container .typing-indicator {
         display: flex;
         align-items: center;
         gap: 6px;
@@ -233,7 +244,7 @@
         background: #f8f9fa;
       }
       
-      .typing-indicator span {
+      #chat-widget-container .typing-indicator span {
         width: 8px;
         height: 12px;
         background: #007AFF;
@@ -241,11 +252,11 @@
         animation: typing 1.4s infinite ease-in-out;
       }
       
-      .typing-indicator span:nth-child(2) {
+      #chat-widget-container .typing-indicator span:nth-child(2) {
         animation-delay: 0.2s;
       }
       
-      .typing-indicator span:nth-child(3) {
+      #chat-widget-container .typing-indicator span:nth-child(3) {
         animation-delay: 0.4s;
       }
       
@@ -254,14 +265,14 @@
         30% { transform: scaleY(1); }
       }
       
-      .chat-input {
+      #chat-widget-container .chat-input {
         display: flex;
         padding: 16px;
         background: white;
         border-top: 1px solid #e9ecef;
       }
       
-      .chat-input input {
+      #chat-widget-container .chat-input input {
         flex: 1;
         border: 1px solid #ddd;
         border-radius: 20px;
@@ -271,11 +282,11 @@
         transition: border-color 0.2s;
       }
       
-      .chat-input input:focus {
+      #chat-widget-container .chat-input input:focus {
         border-color: #007AFF;
       }
       
-      .send-btn {
+      #chat-widget-container .send-btn {
         background: #007AFF;
         border: none;
         border-radius: 50%;
@@ -290,18 +301,18 @@
         transition: background 0.2s;
       }
       
-      .send-btn:hover {
+      #chat-widget-container .send-btn:hover {
         background: #0056b3;
       }
       
-      .send-btn:disabled {
+      #chat-widget-container .send-btn:disabled {
         background: #ccc;
         cursor: not-allowed;
       }
       
       /* Mobile responsive */
       @media (max-width: 768px) {
-        .chat-window {
+        #chat-widget-container .chat-window {
           width: 100vw;
           height: 100vh;
           bottom: 0;
@@ -448,10 +459,13 @@
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          message: text,
-          sessionId: getSessionId()
-        })
+        body: JSON.stringify([
+          {
+            sessionId: getSessionId(),
+            action: 'sendMessage',
+            chatInput: text.trim()
+          }
+        ])
       });
 
       if (response.ok) {
@@ -475,20 +489,10 @@
   // Initialize Firebase
   const initializeFirebase = () => {
     try {
-      // Firebase configuration
-      const firebaseConfig = {
-        apiKey: "AIzaSyDwZaE1mxthNNoBROjjIff8-DmqRF05Bvg",
-        authDomain: "appoinment-f51c1.firebaseapp.com",
-        databaseURL: "https://appoinment-f51c1-default-rtdb.firebaseio.com",
-        projectId: "appoinment-f51c1",
-        storageBucket: "appoinment-f51c1.appspot.com",
-        messagingSenderId: "123456789",
-        appId: "1:123456789:web:abcdef123456"
-      };
-      
       // Initialize Firebase
       if (typeof firebase !== 'undefined') {
-        firebase.initializeApp(firebaseConfig);
+        // Use the same config as defined at the top
+        firebase.initializeApp(config.firebaseConfig);
         const database = firebase.database();
         
         // Set up Firebase listener
