@@ -88,9 +88,9 @@
           </div>
           <form class="chat-input" onsubmit="handleSendMessage(event)">
             <input type="text" placeholder="Send a message..." id="messageInput" autocomplete="off" enterkeyhint="send">
-            <button type="submit" id="sendButton" class="send-btn" aria-label="Send" style="background-image: url(&quot;data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23ffffff'><path d='M2 21L23 12L2 3V10L17 12L2 14V21Z'/></svg>&quot;); background-position: center; background-repeat: no-repeat; background-size: 20px 20px;">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
-                <path d="M2 21L23 12L2 3V10L17 12L2 14V21Z" fill="currentColor"/>
+            <button type="submit" id="sendButton" class="send-btn" aria-label="Send">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" focusable="false">
+                <path d="M2 21L23 12L2 3V10L17 12L2 14V21Z"></path>
               </svg>
             </button>
           </form>
@@ -398,6 +398,17 @@
         /* Fallback icon via background-image to survive host CSS resets */
         background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23ffffff'><path d='M2 21L23 12L2 3V10L17 12L2 14V21Z'/></svg>");
       }
+      #chat-widget-container .send-btn::after {
+        content: "";
+        width: 20px;
+        height: 20px;
+        background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23ffffff'><path d='M2 21L23 12L2 3V10L17 12L2 14V21Z'/></svg>");
+        background-repeat: no-repeat;
+        background-position: center;
+        background-size: 20px 20px;
+        display: block;
+        pointer-events: none;
+      }
       #chat-widget-container .send-btn:active { transform: scale(0.96); }
       
       #chat-widget-container .send-btn:hover {
@@ -405,9 +416,10 @@
       }
       
       #chat-widget-container .send-btn:disabled {
-        background: #ccc;
-        cursor: not-allowed;
+        background: #9cc3ff; /* keep visibly disabled but clickable cursor */
+        cursor: pointer;
         color: #fff;
+        opacity: 1;
       }
       #chat-widget-container .send-btn svg,
       #chat-widget-container .send-btn svg path {
