@@ -110,7 +110,14 @@
         right: 20px;
         z-index: 10000;
         font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        isolation: isolate; /* prevent host stacking/context issues */
       }
+      /* Scoped minimal reset to resist host page CSS */
+      #chat-widget-container, #chat-widget-container * { box-sizing: border-box; }
+      #chat-widget-container button { -webkit-appearance: none; appearance: none; font: inherit; }
+      #chat-widget-container input { -webkit-appearance: none; appearance: none; font: inherit; }
+      #chat-widget-container svg { width: 20px; height: 20px; }
+      #chat-widget-container svg, #chat-widget-container svg path { fill: currentColor; }
       
       #chat-widget-container .chat-widget {
         position: relative;
@@ -400,6 +407,10 @@
       #chat-widget-container .send-btn svg path {
         fill: currentColor;
       }
+      /* Stronger icon enforcement to survive host CSS resets */
+      #chat-widget-container #sendButton { color: #fff !important; }
+      #chat-widget-container #sendButton svg { display: block !important; width: 20px !important; height: 20px !important; }
+      #chat-widget-container #sendButton svg path { fill: currentColor !important; stroke: none !important; }
 
       #chat-widget-container .send-btn svg {
         width: 20px;
