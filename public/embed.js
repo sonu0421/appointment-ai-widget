@@ -157,7 +157,6 @@
         visibility: hidden;
         transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
         overflow: hidden;
-        overscroll-behavior: contain;
       }
       
       #chat-widget-container .chat-window.open {
@@ -219,7 +218,6 @@
         flex-direction: column;
         gap: 4px;
         align-items: stretch;
-        overscroll-behavior: contain;
       }
       
       #chat-widget-container .message {
@@ -413,36 +411,10 @@
     if (isOpen) {
       chatWindow.classList.remove('open');
       chatWindow.style.display = 'none';
-      // Unlock body scroll when closing on mobile
-      try {
-        if (bodyScrollLocked) {
-          document.documentElement.style.overflow = prevHtmlOverflow;
-          document.body.style.overflow = prevBodyOverflow;
-          document.body.style.position = prevBodyPosition || '';
-          document.body.style.top = prevBodyTop || '';
-          window.scrollTo(0, bodyScrollY);
-          bodyScrollLocked = false;
-        }
-      } catch(_) {}
     } else {
       chatWindow.style.display = 'flex';
       chatWindow.classList.add('open');
       document.getElementById('messageInput').focus();
-      // Lock body scroll when opening on mobile
-      try {
-        if (window.innerWidth <= 768 && !bodyScrollLocked) {
-          bodyScrollY = window.scrollY || document.documentElement.scrollTop || 0;
-          prevBodyOverflow = document.body.style.overflow;
-          prevHtmlOverflow = document.documentElement.style.overflow;
-          prevBodyPosition = document.body.style.position;
-          prevBodyTop = document.body.style.top;
-          document.documentElement.style.overflow = 'hidden';
-          document.body.style.overflow = 'hidden';
-          document.body.style.position = 'fixed';
-          document.body.style.top = `-${bodyScrollY}px`;
-          bodyScrollLocked = true;
-        }
-      } catch(_) {}
     }
   };
 
@@ -471,13 +443,6 @@
   let sessionId = null;
   let quickRepliesRendered = false;
   const processedMessageIds = new Set();
-  // Body scroll lock state for mobile
-  let bodyScrollLocked = false;
-  let prevBodyOverflow = '';
-  let prevHtmlOverflow = '';
-  let prevBodyPosition = '';
-  let prevBodyTop = '';
-  let bodyScrollY = 0;
 
   // Generate session ID
   const generateSessionId = () => {
@@ -842,14 +807,10 @@
       // Also listen to window resize to toggle between mobile/desktop behavior
       window.addEventListener('resize', adjustForViewport);
       adjustForViewport();
-      // Ensure input stays in view when focused and after send (desktop only to avoid page jump on mobile)
+      // Ensure input stays in view when focused and after send
       const keepInputVisible = () => {
         setTimeout(() => {
-          try {
-            if (window.innerWidth > 768) {
-              input.scrollIntoView({block: 'nearest', inline: 'nearest'});
-            }
-          } catch(_) {}
+          try { input.scrollIntoView({block: 'nearest', inline: 'nearest'}); } catch(_) {}
           if (messagesEl) messagesEl.scrollTop = messagesEl.scrollHeight;
         }, 100);
       };
