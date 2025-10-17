@@ -302,11 +302,11 @@
       }
       
       #chat-widget-container .typing-indicator {
-        display: flex;
+        display: inline-flex;
         align-items: center;
         gap: 6px;
-        padding: 16px;
-        background: #f8f9fa;
+        padding: 6px 0 2px 0; /* visually centered in bubble */
+        background: transparent; /* inherit bubble background */
       }
       
       #chat-widget-container .typing-indicator span {
@@ -338,16 +338,23 @@
         background: #F9FAFB;
         border-top: 1px solid #E5E7EB;
         gap: 8px;
+        box-sizing: border-box;
       }
       
       #chat-widget-container .chat-input input {
-        flex: 1;
+        flex: 1 1 auto;
         border: 1px solid #D1D5DB;
         border-radius: 20px;
         padding: 10px 16px;
         font-size: 14px;
         outline: none;
         transition: border-color 0.2s;
+        min-height: 40px;
+        min-width: 0; /* allow flexbox to shrink correctly */
+        background: #fff;
+        -webkit-appearance: none;
+        -moz-appearance: none;
+        appearance: none;
       }
       
       #chat-widget-container .chat-input input:focus {
@@ -366,10 +373,14 @@
         margin-left: 8px;
         color: white;
         cursor: pointer;
-        display: flex;
+        display: inline-flex;
         align-items: center;
         justify-content: center;
-        transition: background 0.2s;
+        transition: background 0.2s, transform 0.1s ease;
+        flex: 0 0 40px; /* don't shrink */
+        min-width: 40px;
+        min-height: 40px;
+        box-shadow: 0 2px 8px rgba(0, 122, 255, 0.25);
       }
       
       #chat-widget-container .send-btn:hover {
@@ -380,12 +391,17 @@
         background: #ccc;
         cursor: not-allowed;
       }
+
+      #chat-widget-container .send-btn svg {
+        width: 20px;
+        height: 20px;
+      }
       
       /* Mobile responsive */
       @media (max-width: 768px) {
         #chat-widget-container .chat-window {
           position: fixed;
-          top: 0;
+          top: 0; /* will be adjusted by JS to follow visual viewport on keyboard */
           left: 0;
           width: 100vw;
           height: 100dvh; /* dynamic viewport for mobile */
@@ -825,10 +841,17 @@
             const height = Math.min(vv.height, window.innerHeight);
             chatWindow.style.height = height + 'px';
             chatWindow.style.maxHeight = height + 'px';
+            // Follow the visual viewport when keyboard opens
+            chatWindow.style.top = (vv.offsetTop || 0) + 'px';
+            chatWindow.style.left = (vv.offsetLeft || 0) + 'px';
+            chatWindow.style.right = '0';
           } else {
-            // Clear inline styles on desktop to use default CSS height
+            // Clear inline styles on desktop to use default CSS
             chatWindow.style.height = '';
             chatWindow.style.maxHeight = '';
+            chatWindow.style.top = '';
+            chatWindow.style.left = '';
+            chatWindow.style.right = '';
           }
         }
         if (messagesEl) {
