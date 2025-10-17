@@ -87,7 +87,7 @@
             </div>
           </div>
           <form class="chat-input" onsubmit="handleSendMessage(event)">
-            <input type="text" placeholder="Send a message..." id="messageInput" autocomplete="off">
+            <input type="text" placeholder="Send a message..." id="messageInput" autocomplete="off" enterkeyhint="send">
             <button type="submit" id="sendButton" class="send-btn">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
                 <path d="M2 21L23 12L2 3V10L17 12L2 14V21Z" fill="currentColor"/>
@@ -385,6 +385,7 @@
         min-height: 40px;
         box-shadow: 0 2px 8px rgba(0, 122, 255, 0.25);
       }
+      #chat-widget-container .send-btn:active { transform: scale(0.96); }
       
       #chat-widget-container .send-btn:hover {
         background: #0056b3;
@@ -472,6 +473,8 @@
 
   window.handleSendMessage = function(e) {
     e.preventDefault();
+    // Prevent duplicate sends while loading (mobile keyboard stays open)
+    if (isLoading) return;
     const input = document.getElementById('messageInput');
     const message = input.value.trim();
     
@@ -915,7 +918,7 @@ function setLoading(loading) {
     if (ti) ti.style.display = loading ? 'flex' : 'none';
     const input = document.getElementById('messageInput');
     const btn = document.getElementById('sendButton');
-    if (input) input.disabled = loading;
+    // Keep input enabled so keyboard stays open on mobile
     if (btn) btn.disabled = loading || (input && !input.value.trim());
     if (!loading && input) {
       // Restore focus when loading ends
