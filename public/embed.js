@@ -158,6 +158,9 @@
         transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
         overflow: hidden;
         overscroll-behavior: contain;
+        will-change: transform;
+        backface-visibility: hidden;
+        -webkit-overflow-scrolling: touch;
       }
       
       #chat-widget-container .chat-window.open {
@@ -390,6 +393,11 @@
       #chat-widget-container .send-btn:disabled {
         background: #ccc;
         cursor: not-allowed;
+        color: #fff;
+      }
+      #chat-widget-container .send-btn svg,
+      #chat-widget-container .send-btn svg path {
+        fill: currentColor;
       }
 
       #chat-widget-container .send-btn svg {
@@ -841,10 +849,10 @@
             const height = Math.min(vv.height, window.innerHeight);
             chatWindow.style.height = height + 'px';
             chatWindow.style.maxHeight = height + 'px';
-            // Follow the visual viewport when keyboard opens
-            chatWindow.style.top = (vv.offsetTop || 0) + 'px';
-            chatWindow.style.left = (vv.offsetLeft || 0) + 'px';
-            chatWindow.style.right = '0';
+            // Keep positioned at 0 to avoid jank; rely on height change only
+            chatWindow.style.top = '0px';
+            chatWindow.style.left = '0px';
+            chatWindow.style.right = '0px';
           } else {
             // Clear inline styles on desktop to use default CSS
             chatWindow.style.height = '';
@@ -859,8 +867,8 @@
         }
       };
       if (window.visualViewport) {
+        // Only react on resize; scroll events during keyboard slide can cause jank
         window.visualViewport.addEventListener('resize', adjustForViewport);
-        window.visualViewport.addEventListener('scroll', adjustForViewport);
       }
       // Also listen to window resize to toggle between mobile/desktop behavior
       window.addEventListener('resize', adjustForViewport);
