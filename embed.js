@@ -409,7 +409,7 @@
       @media (max-width: 768px) {
         #chat-widget-container .chat-window {
           position: fixed;
-          top: 0; /* will be adjusted by JS to follow visual viewport on keyboard */
+          top: auto; /* anchored via bottom offset handled by JS */
           left: 0;
           width: 100vw;
           height: 100dvh; /* dynamic viewport for mobile */
@@ -849,8 +849,10 @@
             const height = Math.min(vv.height, window.innerHeight);
             chatWindow.style.height = height + 'px';
             chatWindow.style.maxHeight = height + 'px';
-            // Keep positioned at 0 to avoid jank; rely on height change only
-            chatWindow.style.top = '0px';
+            // Anchor to bottom: move bottom to the visual viewport bottom
+            const keyboardInset = Math.max(0, window.innerHeight - vv.height - vv.offsetTop);
+            chatWindow.style.bottom = keyboardInset + 'px';
+            chatWindow.style.top = 'auto';
             chatWindow.style.left = '0px';
             chatWindow.style.right = '0px';
           } else {
@@ -860,6 +862,7 @@
             chatWindow.style.top = '';
             chatWindow.style.left = '';
             chatWindow.style.right = '';
+            chatWindow.style.bottom = '';
           }
         }
         if (messagesEl) {
