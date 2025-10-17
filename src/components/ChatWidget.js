@@ -22,7 +22,7 @@ const N8N_WEBHOOK_URL = "https://dr-rameshwar-appointment-gahmdwcjg2gjdwbh.centr
 const app = initializeApp(firebaseConfig);
 const db = getDatabase(app);
 
-const ChatWidget = () => {
+const ChatWidget = ({ assetBase } = {}) => {
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState([]);
   const [inputValue, setInputValue] = useState('');
@@ -373,7 +373,7 @@ const ChatWidget = () => {
           <div className="header-content">
             <div className="bot-avatar">
               <img 
-                src={process.env.PUBLIC_URL + "https://github.com/sonu0421/appointment-ai-widget/blob/main/public/images/dr-rameshwar.jpg"} 
+                src={((assetBase) || (typeof window !== 'undefined' && window.DR_WIDGET_ASSET_BASE) || (process.env.PUBLIC_URL || '')) + "/images/dr-rameshwar.jpg"}
                 alt="Dr. Rameshwar Kumar" 
                 style={{
                   width: '100%',

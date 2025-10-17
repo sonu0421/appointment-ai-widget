@@ -9,6 +9,7 @@
     "build": "react-scripts build",
     "test": "react-scripts test",
     "eject": "react-scripts eject",
+    "build:wc": "esbuild src/webcomponent/register.js --bundle --minify --format=iife --global-name=DRChatWidget --loader:.js=jsx --outfile=public/dr-chat-widget.umd.js",
     "predeploy": "npm run build",
     "deploy": "gh-pages -d build"
   },
@@ -31,6 +32,7 @@
     ]
   },
   "devDependencies": {
-    "gh-pages": "^6.3.0"
+    "gh-pages": "^6.3.0",
+    "esbuild": "^0.23.0"
   }
 }
