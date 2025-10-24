@@ -1,0 +1,751 @@
+{
+  "name": "My Workflow 1",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "appointment-confirm",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -2272,
+        208
+      ],
+      "id": "5d7285d5-522f-4844-b8fd-7530939ca6bd",
+      "name": "Webhook",
+      "webhookId": "37360221-ddf2-4295-b60a-9250a6b64d49",
+      "executeOnce": true
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://zoom.us/oauth/token",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/x-www-form-urlencoded"
+            },
+            {
+              "name": "=Authorization",
+              "value": "Basic UTBSTFJtaVhTWlZDUFBmMlZyamd3OmFGMXAwcVkwajBtZ1B4c1V4QTQyRlpQc2JtOVF0SkQ5"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "form-urlencoded",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "grant_type",
+              "value": "account_credentials"
+            },
+            {
+              "name": "account_id",
+              "value": "ErNRGRN1RQ6ui903yRZV1w"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -1808,
+        208
+      ],
+      "id": "d52f13a2-7638-469f-9bb1-2e520a3f4c91",
+      "name": "HTTP Request2"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.zoom.us/v2/users/me/meetings",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $json.access_token }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"topic\": \"Patient Consultation\",\n  \"type\": 2,\n  \"start_time\": \"{{ $('Code in JavaScript').item.json.start_time }}\",\n  \"duration\": 30,\n  \"timezone\": \"Asia/Kolkata\",\n  \"settings\": {\n    \"host_video\": true,\n    \"participant_video\": true,\n    \"waiting_room\": true\n  }\n}\n",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -1584,
+        208
+      ],
+      "id": "7f3e303e-ed29-4098-a505-71397b5f7dbe",
+      "name": "HTTP Request1"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Input\nlet date = $input.first().json.body.date;   // e.g. \"21st October 2025\"\nconst time = $input.first().json.body.Time; // e.g. \"01:00 PM\"\n\n// Remove ordinal suffixes (st, nd, rd, th)\ndate = date.replace(/(\\d+)(st|nd|rd|th)/, \"$1\");\n\n// Combine date + time\nconst dateTimeStr = `${date} ${time}`; // \"21 October 2025 01:00 PM\"\n\n// Create JS Date object\nconst d = new Date(dateTimeStr);\n\n// Convert to ISO string (UTC)\nconst iso = d.toISOString();\n\nreturn [{ json: { start_time: iso } }];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -2032,
+        208
+      ],
+      "id": "55a8e302-fcd7-42c9-9ed3-8d89f935f21a",
+      "name": "Code in JavaScript"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.cal.com/v1/bookings?apiKey=cal_live_229dc6e1aa07ca0f77628f10da4e82f5",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"eventTypeId\": 3216461,\n  \"start\": \"{{ $json.start_time }}\",\n  \"responses\": {\n    \"name\": \"{{ $('Webhook').item.json.body.name }}\",\n    \"email\": \"{{ $('Webhook').item.json.body.email }}\",\n\"ChatId\": \"{{ $('Webhook').item.json.body.chatId }}\",\n    \"phone\": \"{{ $('Webhook').item.json.body.contact }}\",\n    \"location\": {\n      \"value\": \"online\",\n      \"optionValue\": \"\"\n    }\n  },\n  \"timeZone\": \"Asia/Kolkata\",\n  \"language\": \"en\",\n  \"metadata\": {}\n}\n",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -1408,
+        208
+      ],
+      "id": "fb0cdfd8-84b2-49a3-9b3b-ba3c53ae07cf",
+      "name": "HTTP Request"
+    },
+    {
+      "parameters": {
+        "operation": "appendOrUpdate",
+        "documentId": {
+          "__rl": true,
+          "value": "1XmrD-gXcejyDdJqs7fRUY38hypag_bwJ9hizN9uvZhM",
+          "mode": "list",
+          "cachedResultName": "AppoinmentBook",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1XmrD-gXcejyDdJqs7fRUY38hypag_bwJ9hizN9uvZhM/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Sheet1",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1XmrD-gXcejyDdJqs7fRUY38hypag_bwJ9hizN9uvZhM/edit#gid=0"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "SessionId": "={{ $('Webhook').item.json.body.chatId }}",
+            "Name": "={{ $('Webhook').item.json.body.name }}",
+            "Contact": "={{ $('Webhook').item.json.body.contact }}",
+            "Email": "={{ $('Webhook').item.json.body.email }}",
+            "Date": "={{ $('Webhook').item.json.body.date }}",
+            "Time": "={{ $('Webhook').item.json.body.Time }}",
+            "Status": "confirmed",
+            "Payment_Status": "Paid"
+          },
+          "matchingColumns": [
+            "SessionId"
+          ],
+          "schema": [
+            {
+              "id": "SessionId",
+              "displayName": "SessionId",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Name",
+              "displayName": "Name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Contact",
+              "displayName": "Contact",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Email",
+              "displayName": "Email",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Date",
+              "displayName": "Date",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Time",
+              "displayName": "Time",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Type",
+              "displayName": "Type",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "Status",
+              "displayName": "Status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Payment_Status",
+              "displayName": "Payment_Status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Id",
+              "displayName": "Id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "resumeurl",
+              "displayName": "resumeurl",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        -1216,
+        208
+      ],
+      "id": "b1a033c9-513a-4e9f-a308-c0075b13ff8a",
+      "name": "Append or update row in sheet",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "DcLMLcvhNSA7TJHX",
+          "name": "Google Sheets account k"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('Get row(s) in sheet').item.json.resumeurl }}",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"chatId\": \"{{ $('Webhook').item.json.body.chatId }}\",\n  \"message\": \"✅ Payment Received Successfully!  Hello {{ $('Webhook').item.json.body.name }}👋,   Your online consultation with Dr. Rameshwer is confirmed.    🗓 Date & Time: {{ $('Webhook').item.json.body.date }}  {{ $('Webhook').item.json.body.Time }},    🔗 Zoom Link: {{ $('HTTP Request1').item.json.join_url }}    Please join the consultation 5 minutes before your scheduled time.  \"\n}\n",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -512,
+        224
+      ],
+      "id": "d7c2a378-f414-4d6d-9d37-0e88f0711c2d",
+      "name": "HTTP Request7"
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "Payment",
+        "options": {
+          "rawBody": false
+        }
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -2000,
+        544
+      ],
+      "id": "b40d6cf0-eb85-4462-9045-3f2ce6b90d02",
+      "name": "Webhook1",
+      "webhookId": "b421eae9-7ecb-4bbb-85f0-6fb6fe2bbcc6",
+      "executeOnce": true,
+      "retryOnFail": true,
+      "maxTries": 2
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://dr-rameshwar-appointment-gahmdwcjg2gjdwbh.centralindia-01.azurewebsites.net/webhook/appointment-confirm",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"message\": \"✅ Payment received successfully!\",\n  \"name\": \"{{ $json.body.payload.payment.entity.notes.name }}\",\n\"contact\": \"{{ $json.body.payload.payment.entity.contact }}\",\n\"oder_id\": \"{{ $json.body.payload.payment.entity.order_id }}\",\n\"email\": \"{{ $json.body.payload.payment_link.entity.customer.email }}\",\n\"date\": \"{{ $json.body.payload.payment_link.entity.notes.slot_date }}\",\n\"Time\": \"{{ $json.body.payload.payment_link.entity.notes.slot_time }}\",\n\"chatId\": \"{{ $json.body.payload.payment_link.entity.notes.chatId }}\"\n}",
+        "options": {
+          "response": {}
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -1712,
+        544
+      ],
+      "id": "239c01d9-6cfb-48ca-9e7b-ca7e8a215a7f",
+      "name": "HTTP Request3"
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "1XmrD-gXcejyDdJqs7fRUY38hypag_bwJ9hizN9uvZhM",
+          "mode": "list",
+          "cachedResultName": "AppoinmentBook",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1XmrD-gXcejyDdJqs7fRUY38hypag_bwJ9hizN9uvZhM/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Sheet1",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1XmrD-gXcejyDdJqs7fRUY38hypag_bwJ9hizN9uvZhM/edit#gid=0"
+        },
+        "filtersUI": {
+          "values": [
+            {
+              "lookupColumn": "SessionId",
+              "lookupValue": "={{ $json.SessionId }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        -1152,
+        432
+      ],
+      "id": "854bfc9b-65e5-49c8-923d-011a603037a1",
+      "name": "Get row(s) in sheet",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "7woKayWfxrf6niwB",
+          "name": "Google Sheets account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "626f073f-ae0e-4de9-b1f9-7fd3b8edb1f6",
+              "leftValue": "={{ $('Webhook').item.json.body.email }}",
+              "rightValue": "dummy",
+              "operator": {
+                "type": "string",
+                "operation": "contains"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -1072,
+        224
+      ],
+      "id": "0e66e062-a9e2-47e4-9938-212091265309",
+      "name": "If"
+    },
+    {
+      "parameters": {
+        "sendTo": "={{ $('Webhook').item.json.body.email }}",
+        "subject": "✅ Your Online Consultation with Dr. Rameshwar Kumar is Confirmed!",
+        "message": "=<div style=\"font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: auto; border: 1px solid #eee; border-radius: 10px; padding: 20px;\">\n  <h2 style=\"text-align: center; color: #0d6efd;\">✅ Appointment Confirmed</h2>\n\n  <p>Hi <b>{{ $json.Name }}</b>,</p>\n\n  <p>Your online consultation has been successfully <b>confirmed</b> ✅</p>\n\n  <h3 style=\"color: #333;\">Appointment Details:</h3>\n  <ul style=\"list-style: none; padding: 0;\">\n    <li>👨‍⚕️ <b>Doctor:</b> Dr. Rameshwar Kumar</li>\n    <li>📅 <b>Date:</b> {{ $json.Date }}</li>\n    <li>🕒 <b>Time:</b> {{ $json.Time }}</li>\n    <li>💻 <b>Mode:</b> Online Consultation (Video Call)</li>\n    <li>🔗 <b>Join Link:</b> <a href=\"{{ $('HTTP Request1').item.json.join_url }}\" target=\"_blank\">Join Zoom Meeting</a></li>\n  </ul>\n\n  <p><b>Please make sure to:</b></p>\n  <ul>\n    <li>Join 5 minutes before your scheduled time</li>\n    <li>Keep your medical reports ready (if any)</li>\n    <li>Ensure a good internet connection</li>\n  </ul>\n\n  <p>If you wish to reschedule or have any questions, reply to this email or contact us at <b>+91 79922 71883</b>.</p>\n\n  <hr style=\"border: none; border-top: 1px solid #ddd; margin: 20px 0;\">\n\n  <p>Thank you for choosing <b>Dr. Rameshwar Kumar</b><br>\n  We look forward to assisting you with your consultation!</p>\n\n  <p style=\"margin-top: 20px;\">\n    Warm regards,<br>\n    <b>Team Dr. Rameshwar Kumar</b><br>\n    📞 +91 79922 71883 | 💻 <a href=\"https://drrameshwarkumar.in/\" target=\"_blank\">drrameshwarkumar.in</a> | 📧 <a href=\"mailto:care@drrameshwarkumar.in\">care@drrameshwarkumar.in</a>\n  </p>\n</div>\n",
+        "options": {
+          "appendAttribution": false
+        }
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        -880,
+        288
+      ],
+      "id": "ab326167-07b7-4717-bae2-f721af2b726b",
+      "name": "Send a message",
+      "webhookId": "2e595647-bd02-4866-ad32-a983f560db65",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "EzBRfI1mIVrC5MFk",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://appoinment-f51c1-default-rtdb.firebaseio.com/User/{{ $json.SessionId }}.json",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googleFirebaseRealtimeDatabaseOAuth2Api",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={ \"payment_status\": \"paid\",\n  \"from\": \"bot\",\n  \"time\": \"={{ $now }}\",\n  \"text\": \"✅ Payment Received Successfully! Hello {{ $json.Name }}👋, Your online consultation with Dr. Rameshwer is confirmed.\\n\\n🗓 Date & Time: {{ $json.Date }} {{ $json.Time }}\\n\\n🔗 Zoom Link: {{ $('HTTP Request1').item.json.join_url }}\\n\\nPlease join the consultation 5 minutes before your scheduled time.\"\n}\n",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -720,
+        208
+      ],
+      "id": "e72719bf-0e6b-44ca-884c-623ac0508eab",
+      "name": "HTTP Request4",
+      "credentials": {
+        "httpBasicAuth": {
+          "id": "wH4FMMWpIsGiiq2G",
+          "name": "Unnamed credential"
+        },
+        "googleFirebaseRealtimeDatabaseOAuth2Api": {
+          "id": "wvXEtse8aDRoyTn3",
+          "name": "Google Firebase Realtime Database account"
+        }
+      }
+    }
+  ],
+  "pinData": {
+    "Webhook1": [
+      {
+        "json": {
+          "headers": {
+            "host": "dr-rameshwar-appointment-gahmdwcjg2gjdwbh.centralindia-01.azurewebsites.net",
+            "user-agent": "Razorpay-Webhook/v1",
+            "accept-encoding": "gzip",
+            "max-forwards": "10",
+            "request-id": "RQyXtWn8B0ZdY2",
+            "x-razorpay-event-id": "RQyXtWn8B0ZdY2",
+            "x-razorpay-signature": "1d8aabab0da767201e9aad65b23a84ba432e112d53933ffea4531ed98d6056f7",
+            "x-arr-log-id": "4940f688-66d2-4be3-a159-7eb408244dc5",
+            "client-ip": "52.66.75.174:17381",
+            "disguised-host": "dr-rameshwar-appointment-gahmdwcjg2gjdwbh.centralindia-01.azurewebsites.net",
+            "x-site-deployment-id": "Dr-Rameshwar-appointment",
+            "was-default-hostname": "dr-rameshwar-appointment-gahmdwcjg2gjdwbh.centralindia-01.azurewebsites.net",
+            "x-forwarded-proto": "https",
+            "x-appservice-proto": "https",
+            "x-arr-ssl": "2048|256|CN=Microsoft Azure RSA TLS Issuing CA 04, O=Microsoft Corporation, C=US|CN=*.azurewebsites.net, O=Microsoft Corporation, L=Redmond, S=WA, C=US",
+            "x-forwarded-tlsversion": "1.3",
+            "x-forwarded-for": "52.66.75.174:17381",
+            "x-original-url": "/webhook/Payment",
+            "x-waws-unencoded-url": "/webhook/Payment",
+            "x-client-ip": "52.66.75.174",
+            "x-client-port": "17381",
+            "content-type": "application/json",
+            "content-length": "996"
+          },
+          "params": {},
+          "query": {},
+          "body": {
+            "entity": "event",
+            "account_id": "acc_RAi3fPSOdMZ6UC",
+            "event": "payment.captured",
+            "contains": [
+              "payment"
+            ],
+            "payload": {
+              "payment": {
+                "entity": {
+                  "id": "pay_RQyXrJl5bzlIyW",
+                  "entity": "payment",
+                  "amount": 50000,
+                  "currency": "INR",
+                  "status": "captured",
+                  "order_id": "order_RQyXb8MGHdVJ4O",
+                  "invoice_id": null,
+                  "international": false,
+                  "method": "upi",
+                  "amount_refunded": 0,
+                  "refund_status": null,
+                  "captured": true,
+                  "description": "#RQyXJG9uN33NSe",
+                  "card_id": null,
+                  "bank": null,
+                  "wallet": null,
+                  "vpa": "sokojijhi@ybl",
+                  "email": "void@razorpay.com",
+                  "contact": "+917978995545",
+                  "notes": {
+                    "name": "Kajal",
+                    "chatId": "460d6610-d9b2-4362-bea2-bb60c853c29b",
+                    "slot_date": "2025-10-10",
+                    "slot_time": "11:00 AM"
+                  },
+                  "fee": 1298,
+                  "tax": 198,
+                  "error_code": null,
+                  "error_description": null,
+                  "error_source": null,
+                  "error_step": null,
+                  "error_reason": null,
+                  "acquirer_data": {
+                    "rrn": "319311546277",
+                    "upi_transaction_id": "CB997351551CD6A50CEA165686060122"
+                  },
+                  "created_at": 1759925800,
+                  "reward": null,
+                  "upi": {
+                    "vpa": "sokojijhi@ybl",
+                    "flow": "collect"
+                  },
+                  "base_amount": 50000
+                }
+              }
+            },
+            "created_at": 1759925801
+          },
+          "webhookUrl": "https://dr-rameshwar-appointment-gahmdwcjg2gjdwbh.centralindia-01.azurewebsites.net/webhook/Payment",
+          "executionMode": "production"
+        }
+      }
+    ],
+    "Webhook": [
+      {
+        "json": {
+          "headers": {
+            "accept": "application/json,text/html,application/xhtml+xml,application/xml,text/*;q=0.9, image/*;q=0.8, */*;q=0.7",
+            "host": "dr-rameshwar-appointment-gahmdwcjg2gjdwbh.centralindia-01.azurewebsites.net",
+            "user-agent": "axios/1.12.0",
+            "accept-encoding": "gzip, compress, deflate, br",
+            "max-forwards": "10",
+            "x-arr-log-id": "c471a522-167a-4e70-9b4c-5fe7d8cefc20",
+            "client-ip": "135.235.209.102:41473",
+            "disguised-host": "dr-rameshwar-appointment-gahmdwcjg2gjdwbh.centralindia-01.azurewebsites.net",
+            "x-site-deployment-id": "Dr-Rameshwar-appointment",
+            "was-default-hostname": "dr-rameshwar-appointment-gahmdwcjg2gjdwbh.centralindia-01.azurewebsites.net",
+            "x-forwarded-proto": "https",
+            "x-appservice-proto": "https",
+            "x-arr-ssl": "2048|256|CN=Microsoft Azure RSA TLS Issuing CA 04, O=Microsoft Corporation, C=US|CN=*.azurewebsites.net, O=Microsoft Corporation, L=Redmond, S=WA, C=US",
+            "x-forwarded-tlsversion": "1.3",
+            "x-forwarded-for": "135.235.209.102:41473",
+            "x-original-url": "/webhook/appointment-confirm",
+            "x-waws-unencoded-url": "/webhook/appointment-confirm",
+            "x-client-ip": "135.235.209.102",
+            "x-client-port": "41473",
+            "content-type": "application/json",
+            "content-length": "236"
+          },
+          "params": {},
+          "query": {},
+          "body": {
+            "message": "✅ Payment received successfully!",
+            "name": "Kajal",
+            "contact": "+918989898985",
+            "oder_id": "order_RXF45Tu7n9B0I6",
+            "email": "dummy-7846959658@noemail.com",
+            "date": "2025-10-28",
+            "Time": "10:00",
+            "chatId": "mh4kwwh151e3sn9ynyhsexr9tu8o"
+          },
+          "webhookUrl": "https://dr-rameshwar-appointment-gahmdwcjg2gjdwbh.centralindia-01.azurewebsites.net/webhook/appointment-confirm",
+          "executionMode": "production"
+        }
+      }
+    ]
+  },
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request2": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request1": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request": {
+      "main": [
+        [
+          {
+            "node": "Append or update row in sheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Append or update row in sheet": {
+      "main": [
+        [
+          {
+            "node": "If",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Webhook1": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request3",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request7": {
+      "main": [
+        []
+      ]
+    },
+    "Get row(s) in sheet": {
+      "main": [
+        []
+      ]
+    },
+    "If": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request4",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Send a message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send a message": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request4",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "callerPolicy": "workflowsFromSameOwner"
+  },
+  "versionId": "ac7d921c-4a99-4031-9a49-20d6ee97971d",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "7133e402cd75320389ca859e9a35c0bbf10dfab2b366c6715d76e5790fe6d56c"
+  },
+  "id": "rcz8O5RfG8F7kQ7x",
+  "tags": []
+}

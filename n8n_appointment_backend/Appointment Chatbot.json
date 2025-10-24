@@ -1,0 +1,2690 @@
+{
+  "name": "My workflow",
+  "nodes": [
+    {
+      "parameters": {
+        "sessionIdType": "customKey",
+        "sessionKey": "={{ $('Set credentials').item.json.sessionId }}",
+        "contextWindowLength": 50
+      },
+      "type": "@n8n/n8n-nodes-langchain.memoryBufferWindow",
+      "typeVersion": 1.3,
+      "position": [
+        -1024,
+        -512
+      ],
+      "id": "b305ae1f-12ab-41e1-8fa6-1935453695ad",
+      "name": "Window Buffer Memory"
+    },
+    {
+      "parameters": {
+        "toolDescription": "Responsible to retrieve all available free appointment slots from database.",
+        "url": "https://api.cal.com/v1/slots",
+        "sendQuery": true,
+        "specifyQuery": "json",
+        "jsonQuery": "={\n  \"startTime\": \"{startTime}\",\n  \"endTime\": \"{endTime}\",\n  \"eventTypeId\": \"{{ $('Set credentials').item.json.cal_event_type_id }}\",\n  \"timeZone\": \"{{ $('Set credentials').item.json.timezone }}\",\n  \"apiKey\": \"{{ $('Set credentials').item.json.cal_api_key }}\"\n}",
+        "placeholderDefinitions": {
+          "values": [
+            {
+              "name": "startTime",
+              "description": "Start date string from which to fetch slots, formatted in ISO 8601 and in the UTC timezone. The time should always start at 00:00:00",
+              "type": "string"
+            },
+            {
+              "name": "endTime",
+              "description": "End date string up to which slots should be fetched, formatted in ISO 8601 and in the UTC timezone. The time should always end at 23:59:59",
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.toolHttpRequest",
+      "typeVersion": 1.1,
+      "position": [
+        -352,
+        -704
+      ],
+      "id": "235303e7-9d76-4386-898f-a14c51b57ab9",
+      "name": "retrieve_available_free_slots_from_database"
+    },
+    {
+      "parameters": {
+        "toolDescription": "Responsible for saving appointment into the database.",
+        "method": "POST",
+        "url": "https://api.cal.com/v1/bookings",
+        "sendQuery": true,
+        "specifyQuery": "json",
+        "jsonQuery": "={\n  \"apiKey\": \"{{ $('Set credentials').item.json.cal_api_key }}\"\n}",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"eventTypeId\": {{ $('Set credentials').item.json.cal_event_type_id }},\n  \"start\": \"{startTime}\",\n  \"responses\": {\n    \"name\": \"{userName}\",\n    \"email\": \"{userEmail}\",\n    \"phone\": \"{userPhone}\",\n    \"location\": {\n      \"value\": \"online\",\n      \"optionValue\": \"\"\n    }\n  },\n  \"timeZone\": \"{{ $('Set credentials').item.json.timezone }}\",\n  \"language\": \"en\",\n  \"metadata\": {}\n}\n",
+        "placeholderDefinitions": {
+          "values": [
+            {
+              "name": "startTime",
+              "description": "Start date string of the appointment picked by user, formatted in ISO 8601 and in the UTC timezone (available inside tool response)",
+              "type": "string"
+            },
+            {
+              "name": "userName",
+              "description": "Full name of the user",
+              "type": "string"
+            },
+            {
+              "name": "userPhone",
+              "description": "Phone of the user"
+            },
+            {
+              "name": "userEmail",
+              "description": "Email of the user"
+            }
+          ]
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.toolHttpRequest",
+      "typeVersion": 1.1,
+      "position": [
+        -64,
+        -688
+      ],
+      "id": "43b27e15-f7e5-41d2-8beb-149bfdeb0201",
+      "name": "book_appointment"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $json.messageText }}",
+        "hasOutputParser": true,
+        "options": {
+          "systemMessage": "=You are an intent classification system for an appointment booking workflow.\n\n⚠️ CRITICAL RULES:\n- You must ONLY respond by calling the \"Code Tool\".\n- Never write the output directly yourself.\n- You must NEVER generate patient replies, explanations, or sentences.\n- You must NOT classify using natural language.\n- You are NOT a chatbot or assistant.\n- Your ONLY task is classification.\n- Your output must strictly follow the schema defined below.\n- You must ALWAYS call the \"Code Tool\" to produce the final output.\n- Never output any text, sentences, or JSON manually.\n\nIntent Categories:\n- BOOK: User explicitly wants to book, schedule, or modify an appointment (check slots, confirm time/date, reschedule, provide/correct details).\n- INFO: User asks about factual doctor/hospital details (OPD timings, address, contact number, services, fees).\n- CONVERSATION: User greets, chats casually, or describes health problems/symptoms (e.g., joint pain, back pain, arthritis, fractures).\n\nClassification Rules:\n- Always consider the full conversation history (Window Buffer Memory) plus the latest message.\n- If the user shares symptoms, pain, or general health problems → CONVERSATION\n- If the user asks factual info about doctor/hospital → INFO\n- If the user explicitly requests to book, confirm, or modify an appointment → BOOK\n- If ambiguous but a booking is already in progress → BOOK\n- Never classify a symptom description as BOOK or INFO.\n- Never output anything except the one word label.\n- If you cannot classify, default to CONVERSATION.\n- Maximum output tokens = 1.\n\nYou must determine the correct intent and then call the \"Code Tool\" to return it.\n\nThe final result MUST be returned by the Code Tool in this format:\n{\n  \"intent\": \"BOOK\" | \"INFO\" | \"CONVERSATION\"\n}\n\nNever generate or print this format yourself — only call the \"Code Tool\" to do so.\nUser Input → AI Agent Prompt → AI Agent Code Tool → Structured Output Parser → Final JSON\n\n"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 1.7,
+      "position": [
+        -1040,
+        -832
+      ],
+      "id": "abe81b09-4967-4684-acd5-e0dbd0e1f4ee",
+      "name": "Router Agent"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $('Set credentials').item.json.messageText }}",
+        "options": {
+          "systemMessage": "=You are Dr. Rameshwar Kumar Appointment Booking Bot, a friendly and empathetic assistant.\n\nYour role is to help patients with orthopedic and bone-related health issues and guide them toward booking an appointment with Dr. Rameshwar Kumar MBBS, MS, DNB, Mch(Ortho), Orthopedic & Joint Replacement Surgeon.\n\nGoals:\n\n1. Warm Greeting & Empathy\n- Jab patient \"Hi\", \"Hello\", \"Namaste\", ya koi greeting de → warmly greet karo aur humanized tone me bolo:\n\"Namaste 🙏, main Dr. Rameshwar Kumar ka assistant hu. Aap kaise ho? Kya aapko knee, joint ya back pain se related koi dikkat hai? Main aapki madad kar sakta hu.\"\n\nConversation Flow\n- Allow small talk and humanized back-and-forth.\n- Maintain polite, friendly, empathetic Hinglish.\n- Short paragraphs and line breaks for easy readability.\n- Smooth conversational flow, jaise ek real healthcare assistant baat kare.\n\n- Agar patient “Kaise ho?” ya small talk kare → polite aur friendly reply do:\n\"Main theek hu 🙏, aap kaise ho? Kya aapko orthopedic ya joint se related koi dikkat ho rahi hai?\"\n\n2. Problem Understanding (Orthopedic Only)\n- Agar patient apni health problem share kare (e.g., “knee pain”, “joint pain”, “back pain”) → empathetic aur humanized response do, short paragraphs me:\n\"Samajh gaya 🙏, ye aapke liye uncomfortable hoga. Aap tension mat lijiye, main yaha hu aapki madad ke liye.\"\n\n3. Specialization Guidance & Appointment Offer\n- Sirf orthopedic aur hadiyo se related problems ke liye suggestion do.\n- Polite appointment prompt (optional, friendly, alag paragraph):\n\"Agar aap chahen, to Dr. Rameshwar Kumar, Orthopedic & Joint Replacement Surgeon, aapko best treatment de sakte hain. Kya mai aapke liye appointment schedule kar du? Agar abhi nahi karna chahte, to bhi theek hai.\"\n\n4. Non-Orthopedic Queries\n- Agar patient unrelated (pet, fever, stomach issues, etc.) pooche → empathetic refusal do:\n\"Maaf kijiye 🙏, main sirf orthopedic aur hadiyo/joint se judi problems me hi help kar sakta hu.\"\n\n\n6. If the patient asks about their appointment status, first ask them politely for their registered phone number or email address. Once they provide it, call the tool `googlesheetgetdata` using that detail to fetch their appointment information. After fetching, clearly share the appointment details with the patient in a friendly and helpful way.\n\n7. Strict Boundaries\n- Sirf appointment booking aur orthopedic health issues handle karo.\n- Unrelated topics (recipes, jokes, news) me engage mat karo.\n- Agar patient repeatedly unrelated queries kare → politely close conversation:\n\"Aisa lagta hai aapko orthopedic consultation ki zarurat nahi hai. Agar kabhi haddiyo ya joint pain ki dikkat ho to mujhe contact kar sakte ho. Dhanyawaad 🙏.\"\n\nToday's date & time: '{{ $('Set credentials').item.json.currentDateTime }}'\n"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 1.7,
+      "position": [
+        -544,
+        -576
+      ],
+      "id": "4bcbb0af-e781-48f3-93b9-fe18a18789aa",
+      "name": "Conversational agent"
+    },
+    {
+      "parameters": {
+        "mode": "raw",
+        "jsonOutput": "={\n  \"cal_event_type_id\": 3216461,\n  \"cal_api_key\": \"cal_live_229dc6e1aa07ca0f77628f10da4e82f5\",\n  \"currentDateTime\": \"{{ \n    $json.message?.text?.metadata?.clientCurrentDateTime \n      || $json.chatInput?.metadata?.clientCurrentDateTime \n      || new Intl.DateTimeFormat('en-US', { \n          weekday: 'short', year: 'numeric', month: 'long', day: 'numeric', \n          hour: '2-digit', minute: '2-digit', second: '2-digit', \n          timeZone: 'Asia/Calcutta', timeZoneName: 'long' \n        }).format(new Date()) \n  }}\",\n  \"timezone\": \"{{ \n    $json.message?.text?.metadata?.clientCurrentTimezone \n      || $json.chatInput?.metadata?.clientCurrentTimezone \n      || 'Asia/Calcutta' \n  }}\",\n  \"messageText\": \"{{ \n    $json.message?.text || $json.message ||$json.chatInput ||$json['0'].chatInput\n  }}\",\n  \"sessionId\": \"{{ $json.sessionId||$json[0].sessionId||$json.session_i || $json.sessionId || $json.message.chat.id }}\",\n  \"currentTimeCompact\": \"{{ new Date().toISOString().replace(/[-:.TZ]/g,'') }}\"\n}\n",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -1456,
+        -800
+      ],
+      "id": "b908d1ec-cae1-4dcd-919b-7e1f2de91ee0",
+      "name": "Set credentials"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1,
+      "position": [
+        -1280,
+        -528
+      ],
+      "id": "2851710d-23b2-468e-aa03-eb6e06f04a6b",
+      "name": "Google Gemini Chat Model",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "69PnoqpDB56HBakH",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "options": {
+          "temperature": 0.4,
+          "topK": 32,
+          "topP": 1
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1,
+      "position": [
+        -480,
+        -704
+      ],
+      "id": "0335e57c-00ad-437c-af0b-6b6ad804be97",
+      "name": "Google Gemini Chat Model1",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "V8QJvsKL1gg0yvip",
+          "name": "Google Gemini(PaLM) Api account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1,
+      "position": [
+        -560,
+        -320
+      ],
+      "id": "37d73d28-bdda-4747-836b-414e89a2f015",
+      "name": "Google Gemini Chat Model2",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "69PnoqpDB56HBakH",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "description": "you have data specific to Health Ai le Dawai Company",
+        "topK": 10
+      },
+      "type": "@n8n/n8n-nodes-langchain.toolVectorStore",
+      "typeVersion": 1.1,
+      "position": [
+        32,
+        -304
+      ],
+      "id": "9689d1ba-7508-441f-b6c2-99ab645b6ba4",
+      "name": "Answer questions with a vector store"
+    },
+    {
+      "parameters": {},
+      "type": "@n8n/n8n-nodes-langchain.embeddingsGoogleGemini",
+      "typeVersion": 1,
+      "position": [
+        -192,
+        112
+      ],
+      "id": "0c3367fd-4ead-404e-9081-b5e7a3a2ddad",
+      "name": "Embeddings Google Gemini1",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "69PnoqpDB56HBakH",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "pineconeIndex": {
+          "__rl": true,
+          "value": "my-kb",
+          "mode": "list",
+          "cachedResultName": "my-kb"
+        },
+        "options": {
+          "pineconeNamespace": "n8n"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.vectorStorePinecone",
+      "typeVersion": 1.3,
+      "position": [
+        -96,
+        -64
+      ],
+      "id": "6ed613b8-0ffb-4f8e-b123-9a7b4b78ddcc",
+      "name": "Pinecone Vector Store1",
+      "credentials": {
+        "pineconeApi": {
+          "id": "zTxJz2o8ZmmN00co",
+          "name": "PineconeApi account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "modelName": "models/gemini-2.5-flash-lite",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1,
+      "position": [
+        448,
+        16
+      ],
+      "id": "c6fbc690-35a7-46fb-94f8-49276287ca2c",
+      "name": "Google Gemini Chat Model4",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "69PnoqpDB56HBakH",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "toolDescription": "Responsible to retrieve all available free appointment slots from database.",
+        "method": "POST",
+        "url": "https://api.razorpay.com/v1/payment_links",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBasicAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"amount\": 50000,\n  \"currency\": \"INR\",\n  \"accept_partial\": false,\n  \"reference_id\": \"order1{{ $('Set credentials').item.json.currentTimeCompact }}\",\n  \"description\": \"Online Consultation with Dr. Rameshwer\",\n  \"customer\": {\n    \"name\": \"{{ $fromAI('name') }}\",\n    \"contact\": \"{{ $fromAI('contact') }}\",\n    \"email\": \"{{ $fromAI('email') }}\"\n  },\n  \"notify\": {\n    \"sms\": true,\n    \"email\": true\n  },\n  \"notes\": {\n    \"chatId\": \"{{ $('Set credentials').item.json.sessionId }}\",\n    \"name\": \"{{ $fromAI('name') }}\",\n    \"slot_date\": \"{{ $fromAI('slot_date') }}\",\n    \"slot_time\": \"{{ $fromAI('slot_time') }}\"\n  },\n  \"reminder_enable\": true,\n  \"callback_url\": \"{{ 'https://drrameshwarkumar.in/?payment_status=success' }}\",\n  \"callback_method\": \"get\"\n}\n",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequestTool",
+      "typeVersion": 4.2,
+      "position": [
+        240,
+        -752
+      ],
+      "id": "5788ecba-2024-4734-be2c-b2aa7f12f81e",
+      "name": "razorpay_create_payment_link",
+      "credentials": {
+        "httpBasicAuth": {
+          "id": "wH4FMMWpIsGiiq2G",
+          "name": "Unnamed credential"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "appointment-confirm",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -1488,
+        -1232
+      ],
+      "id": "4c0ccd9f-aeff-46ca-8e08-d6d8c37e6ef8",
+      "name": "Webhook",
+      "webhookId": "37360221-ddf2-4295-b60a-9250a6b64d49",
+      "executeOnce": true,
+      "disabled": true
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $('Telegram Trigger').item.json.message.chat.id }}",
+        "text": "={{ $json.output }}",
+        "additionalFields": {
+          "appendAttribution": false,
+          "parse_mode": "HTML"
+        }
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        -96,
+        -1072
+      ],
+      "id": "24217c02-c92a-415d-9b70-94c18cc58cb9",
+      "name": "Send a text message",
+      "webhookId": "b3e6adac-3716-477b-8153-a1fccc425cad",
+      "credentials": {
+        "telegramApi": {
+          "id": "wpKU8rvxhttV20OE",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $('Telegram Trigger').item.json.message.chat.id }}",
+        "text": "={{ $json.output }}",
+        "additionalFields": {
+          "appendAttribution": false,
+          "parse_mode": "HTML"
+        }
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        816,
+        -448
+      ],
+      "id": "7250a5b1-23c7-49f5-a51f-15195048237e",
+      "name": "Send a text message1",
+      "webhookId": "b3e6adac-3716-477b-8153-a1fccc425cad",
+      "credentials": {
+        "telegramApi": {
+          "id": "wpKU8rvxhttV20OE",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.intent }}",
+                    "rightValue": "BOOK",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "9161bd04-6a86-4214-8d68-8880b1a69d18"
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Book"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "12ffca2c-e564-46a8-922c-fe769ce9d52a",
+                    "leftValue": "={{ $json.intent }}",
+                    "rightValue": "CONVERSATION",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "CONVERSATION"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "4d61e710-f248-4fd4-8cad-48fedafd82c3",
+                    "leftValue": "={{ $json.intent }}",
+                    "rightValue": "INFO",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "INFO"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [
+        -608,
+        -880
+      ],
+      "id": "a1ce1962-222b-4fa6-9957-386d16fd52b4",
+      "name": "Switch"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $('Set credentials').item.json.messageText }}",
+        "options": {
+          "systemMessage": "You are an dataset of doctor or hospital info you have knowledges base.  \nYour primary job is to answer user queries about hospitals, doctors, and related details.  \n\n- If the user asks any question that may require factual details about hospitals, doctors, or healthcare facilities, you MUST Always call the tool:\n  \"Answer questions with a vector store\".  \n- Pass the user’s full query to this tool without summarizing or changing it.  \n- Return the tool’s response directly as the final answer.  \n- If the question is unrelated to hospitals or doctors, politely respond without calling the tool.  \ndo not search self and give random output firstly you check tool always if any patient question call the tool and get answer if you not found answer in tool and se empathic answer\nAlways be accurate, concise, and helpful.\n"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 2.2,
+      "position": [
+        464,
+        -608
+      ],
+      "id": "2a734d8a-7c18-4a3d-a44e-a82cdedf2e30",
+      "name": "AI Agent"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1,
+      "position": [
+        464,
+        -368
+      ],
+      "id": "5961f4e0-b722-4ef5-a659-fbc7f61c4f70",
+      "name": "Google Gemini Chat Model3",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "69PnoqpDB56HBakH",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $('Telegram Trigger').item.json.message.chat.id }}",
+        "text": "={{ $json.output }}",
+        "additionalFields": {
+          "appendAttribution": false
+        }
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        576,
+        -144
+      ],
+      "id": "dda9f796-1645-400f-9e97-c4b3d703cc2b",
+      "name": "Send a text message2",
+      "webhookId": "b3e6adac-3716-477b-8153-a1fccc425cad",
+      "credentials": {
+        "telegramApi": {
+          "id": "wpKU8rvxhttV20OE",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "updates": [
+          "message"
+        ],
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.telegramTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        -2288,
+        -592
+      ],
+      "id": "4c0da197-3df0-4c44-bb40-9315c9bffbdc",
+      "name": "Telegram Trigger",
+      "webhookId": "a7562816-c029-4744-ad12-ab370c732f2c",
+      "credentials": {
+        "telegramApi": {
+          "id": "wpKU8rvxhttV20OE",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://zoom.us/oauth/token",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/x-www-form-urlencoded"
+            },
+            {
+              "name": "=Authorization",
+              "value": "Basic UTBSTFJtaVhTWlZDUFBmMlZyamd3OmFGMXAwcVkwajBtZ1B4c1V4QTQyRlpQc2JtOVF0SkQ5"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "form-urlencoded",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "grant_type",
+              "value": "account_credentials"
+            },
+            {
+              "name": "account_id",
+              "value": "ErNRGRN1RQ6ui903yRZV1w"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -976,
+        -1232
+      ],
+      "id": "c7918921-f863-4a84-92e4-15ac8fdd2887",
+      "name": "HTTP Request2"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.zoom.us/v2/users/me/meetings",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $json.access_token }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"topic\": \"Patient Consultation\",\n  \"type\": 2,\n  \"start_time\": \"{{ $('Code in JavaScript').item.json.start_time }}\",\n  \"duration\": 30,\n  \"timezone\": \"Asia/Kolkata\",\n  \"settings\": {\n    \"host_video\": true,\n    \"participant_video\": true,\n    \"waiting_room\": true\n  }\n}\n",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -752,
+        -1232
+      ],
+      "id": "49489c87-77dc-49a7-aad1-9c23aa26c7de",
+      "name": "HTTP Request1"
+    },
+    {
+      "parameters": {
+        "jsCode": "const date = $input.first().json.body.date;   // \"September 26, 2025\"\nconst time = $input.first().json.body.Time;   // \"01:00 PM\"\n\n// JS Date object banane ke liye combine\nconst dateTimeStr = `${date} ${time}`;  // \"September 26, 2025 01:00 PM\"\n\nconst d = new Date(dateTimeStr);\n\n// Zoom ke liye ISO string UTC me\nconst iso = d.toISOString();\n\nreturn [{ json: { start_time: iso } }];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1232,
+        -1232
+      ],
+      "id": "2fcbac08-c3e0-45e1-aeb5-222ded106612",
+      "name": "Code in JavaScript"
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $('HTTP Request').item.json.responses.ChatId }}",
+        "text": "=✅ Payment Received Successfully!\n\nHello {{ $('Webhook').item.json.body.name }}👋,  \nYour online consultation with Dr. Rameshwer is confirmed.  \n\n🗓 Date & Time: {{ $('Webhook').item.json.body.date }}  {{ $('Webhook').item.json.body.Time }},   \n🔗 Zoom Link: {{ $('HTTP Request1').item.json.join_url }}  \n\nPlease join the consultation 5 minutes before your scheduled time.  \n",
+        "additionalFields": {
+          "appendAttribution": false
+        }
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        1056,
+        -1552
+      ],
+      "id": "0ec43b96-5bf8-4c95-9443-93af20bb1932",
+      "name": "Send a text message3",
+      "webhookId": "b3e6adac-3716-477b-8153-a1fccc425cad",
+      "credentials": {
+        "telegramApi": {
+          "id": "wpKU8rvxhttV20OE",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.cal.com/v1/bookings?apiKey=cal_live_55b312735781b1aae6ea2e3aa919c9ab",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"eventTypeId\": 3216461,\n  \"start\": \"{{ $json.start_time }}\",\n  \"responses\": {\n    \"name\": \"{{ $('Webhook').item.json.body.name }}\",\n    \"email\": \"{{ $('Webhook').item.json.body.email }}\",\n\"ChatId\": \"{{ $('Webhook').item.json.body.chatId }}\",\n    \"phone\": \"{{ $('Webhook').item.json.body.contact }}\",\n    \"location\": {\n      \"value\": \"online\",\n      \"optionValue\": \"\"\n    }\n  },\n  \"timeZone\": \"Asia/Kolkata\",\n  \"language\": \"en\",\n  \"metadata\": {}\n}\n",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -544,
+        -1232
+      ],
+      "id": "35f414d4-61d8-4d5d-863c-7b046862ccb6",
+      "name": "HTTP Request"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "x-goog-api-key",
+              "value": "AIzaSyAutTiMHoB6Z4RTV5OJbHMSOyXseHx2S8E"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"contents\": [\n    {\n      \"role\": \"user\",\n      \"parts\": [\n        {\n          \"text\": \"You are Doctor Rameshwer's appointment assistant. Your job is to talk to patients in a friendly, human-like, and empathetic way.\\n\\nGuidelines:\\n- Always reply in the same language the patient uses (English, or Hinglish).\\n- Never say 'I am a hospital assistant'. Always introduce yourself as Doctor Rameshwer's appointment assistant.\\n- If the patient greets you or chit-chats (hello, hi, how are you, what do you do, etc.) → respond warmly and gently mention you can help them with Doctor Rameshwer’s appointments.\\n- If the patient wants to book → ask for details (date, time, problem type if needed).\\n- If the patient asks medical questions or appointment/doctor info → answer only if it is about appointments or doctor details, otherwise politely explain you can only help with Doctor Rameshwer’s appointment and related information.\\n- If the patient asks totally unrelated things (sports, politics, random fun) → give a short, empathetic human-like reply and politely guide back to appointment.\\n- Keep tone human, conversational, never robotic, with occasional emojis for friendliness.\"\n        },\n        {\n          \"text\": \"Patient message: {{ $json.chatInput }}\"\n        }\n      ]\n    }\n  ]\n}\n",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1248,
+        -1200
+      ],
+      "id": "df470d1e-b9d5-4d3b-9546-4c9d1047c019",
+      "name": "HTTP Request4"
+    },
+    {
+      "parameters": {
+        "tableId": "ChatBotAppoinment",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "name",
+              "fieldValue": "={{ $fromAI('name') }}"
+            },
+            {
+              "fieldId": "user_id",
+              "fieldValue": "={{ $('Set credentials').item.json.sessionId }}"
+            },
+            {
+              "fieldId": "type",
+              "fieldValue": "={{ $fromAI('type') }}"
+            },
+            {
+              "fieldId": "status",
+              "fieldValue": "={{ $fromAI('status') }}"
+            },
+            {
+              "fieldId": "email",
+              "fieldValue": "={{ $fromAI('email') }}"
+            },
+            {
+              "fieldId": "phone",
+              "fieldValue": "={{ $fromAI('phone') }}"
+            },
+            {
+              "fieldId": "date",
+              "fieldValue": "={{ $fromAI('date') }}"
+            },
+            {
+              "fieldId": "time",
+              "fieldValue": "={{ $fromAI('time') }}"
+            },
+            {
+              "fieldId": "appointment_date",
+              "fieldValue": "={{ $fromAI('appointment_date') }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabaseTool",
+      "typeVersion": 1,
+      "position": [
+        -272,
+        -704
+      ],
+      "id": "b46f2b24-5ef9-4b40-898c-23fec3a70dd4",
+      "name": "supabase_insert_appointment",
+      "credentials": {
+        "supabaseApi": {
+          "id": "Ux4roDK9zcStTJ9I",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "tableId": "ChatBotAppoinment",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "user_id",
+              "condition": "eq",
+              "keyValue": "={{ $('Webhook').item.json.body.chatId }}"
+            }
+          ]
+        },
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "type",
+              "fieldValue": "Online"
+            },
+            {
+              "fieldId": "email",
+              "fieldValue": "={{ $('Webhook').item.json.body.email }}"
+            },
+            {
+              "fieldId": "phone",
+              "fieldValue": "={{ $('Webhook').item.json.body.contact }}"
+            },
+            {
+              "fieldId": "name",
+              "fieldValue": "={{ $('Webhook').item.json.body.name }}"
+            },
+            {
+              "fieldId": "date",
+              "fieldValue": "={{ $('Webhook').item.json.body.date }}"
+            },
+            {
+              "fieldId": "time",
+              "fieldValue": "={{ $('Webhook').item.json.body.Time }}"
+            },
+            {
+              "fieldId": "razorpay_order_id",
+              "fieldValue": "={{ $('Webhook').item.json.body.oder_id }}"
+            },
+            {
+              "fieldId": "zoom_join_url",
+              "fieldValue": "={{ $('HTTP Request1').item.json.join_url }}"
+            },
+            {
+              "fieldId": "zoom_start_url",
+              "fieldValue": "={{ $('HTTP Request1').item.json.start_url }}"
+            },
+            {
+              "fieldId": "created_at",
+              "fieldValue": "={{ $('HTTP Request1').item.json.created_at }}"
+            },
+            {
+              "fieldId": "appointment_date",
+              "fieldValue": "={{ $('HTTP Request1').item.json.start_time }}"
+            },
+            {
+              "fieldId": "status",
+              "fieldValue": "confirmed"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        640,
+        -1488
+      ],
+      "id": "d431263d-8648-4c70-a5d1-9329fa06be26",
+      "name": "Update a row",
+      "credentials": {
+        "supabaseApi": {
+          "id": "Ux4roDK9zcStTJ9I",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "Payment",
+        "options": {
+          "rawBody": false
+        }
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -2656,
+        -272
+      ],
+      "id": "afce64fa-2163-4725-8cc6-f0aee156746d",
+      "name": "Webhook1",
+      "webhookId": "b421eae9-7ecb-4bbb-85f0-6fb6fe2bbcc6",
+      "executeOnce": true,
+      "retryOnFail": true,
+      "maxTries": 2,
+      "disabled": true
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://dr-rameshwar-appointment-gahmdwcjg2gjdwbh.centralindia-01.azurewebsites.net/webhook/appointment-confirm",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"message\": \"✅ Payment received successfully!\",\n  \"name\": \"{{ $json.body.payload.payment.entity.notes.name }}\",\n\"contact\": \"{{ $json.body.payload.payment.entity.contact }}\",\n\"oder_id\": \"{{ $json.body.payload.payment.entity.order_id }}\",\n\"email\": \"{{ $json.body.payload.payment_link.entity.customer.email }}\",\n\"date\": \"{{ $json.body.payload.payment_link.entity.notes.slot_date }}\",\n\"Time\": \"{{ $json.body.payload.payment_link.entity.notes.slot_time }}\",\n\"chatId\": \"{{ $json.body.payload.payment_link.entity.notes.chatId }}\"\n}",
+        "options": {
+          "response": {}
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -2368,
+        -272
+      ],
+      "id": "f1785ff1-6cbb-446f-a6c3-0b4dacce3563",
+      "name": "HTTP Request3"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://www.fast2sms.com/dev/bulkV2",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "authorization",
+              "value": "0XK7FSl6MORiwIP5Np3sDbqGLhkaHYfodyQ9rjJZ2zeVB4TC8mh5qRUsP3mLQfyZEuBNAkeMp8nWoYwi"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"route\": \"v3\",\n  \"sender_id\": \"TXTIND\",\n  \"message\": \"{{$json[\\\"message\\\"]}}\",\n  \"language\": \"english\",\n  \"flash\": 0,\n  \"numbers\": \"{{$json[\\\"numbers\\\"]}}\"\n}\n",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequestTool",
+      "typeVersion": 4.2,
+      "position": [
+        -176,
+        -688
+      ],
+      "id": "9fb98252-4250-44fa-8328-4ab80ef5af51",
+      "name": "HTTP Request5"
+    },
+    {
+      "parameters": {
+        "updates": [
+          "messages"
+        ],
+        "options": {}
+      },
+      "type": "n8n-nodes-base.whatsAppTrigger",
+      "typeVersion": 1,
+      "position": [
+        -2320,
+        32
+      ],
+      "id": "8f9f4fd3-1ee9-450a-9cd1-9ad2aed75373",
+      "name": "WhatsApp Trigger",
+      "webhookId": "d8dd1c20-8b86-4057-a2b9-e5eb48f60995",
+      "credentials": {
+        "whatsAppTriggerApi": {
+          "id": "guMVg7O8bfgoGvhG",
+          "name": "WhatsApp OAuth account"
+        }
+      },
+      "disabled": true
+    },
+    {
+      "parameters": {
+        "operation": "send",
+        "phoneNumberId": "794003073799790",
+        "recipientPhoneNumber": "={{ $json.contacts[0].wa_id }}",
+        "textBody": "={{ $json.messages[0].text.body }}",
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.whatsApp",
+      "typeVersion": 1,
+      "position": [
+        -1984,
+        32
+      ],
+      "id": "4a736c04-b0bc-465f-8ed3-bd0b64b60504",
+      "name": "Send message",
+      "webhookId": "ae90b9d4-0211-412a-a33a-1af3342563f6",
+      "credentials": {
+        "whatsAppApi": {
+          "id": "f0KxhB38F1IWfRpX",
+          "name": "WhatsApp account"
+        }
+      },
+      "disabled": true
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $('Set credentials').item.json.messageText }}",
+        "options": {
+          "systemMessage": "=You are an appointment booking assistant responsible for scheduling new appointments in the database.\n\nGoals:\n- Help the user book an appointment in a friendly, professional, and conversational manner (Hinglish: polite HIndi + English mix).\n- Dynamically adapt based on the information the user has already provided.\n- Gather required details (appointment type, full name, email OR phone number, preferred appointment date, chosen time slot) before booking.\n- Maintain a polite, human-like, and professional flow.\n\nFlow Guidelines:\n\n1. Appointment Type:\n- If user has not specified, politely ask:\n   \"Please select your preferred appointment type:\n    1️⃣ Clinic Visit  \n    2️⃣ Online Zoom Consultation\"\n- Based on choice, follow respective flow:\n   - **Clinic Visit** → Normal booking flow.  \n   - **Online Zoom Consultation** → Booking flow + Razorpay payment step.\n\n2. Start based on user input:\n- Acknowledge information already provided (e.g., name, date, time preference, appointment type) and avoid asking again.\n- Politely ask only for missing information, one by one:\n   - If appointment type missing: ask as above.\n   - If name missing: \"May I have your full name for the booking?\"\n   - If email missing: ask: \"What email address would you like to use for your booking?\"  \n     → If user says they don’t have an email, politely ask for their **mobile number**:  \n       \"No problem 😊. Could you please share your mobile number so we can send you the appointment confirmation and reminders there?\"\n   - Store whichever is available:\n       - If email given → use email for booking + notification.  \n       - If only phone number given → use phone for booking + notification.  \n\n3. After collecting name, email/phone, and date:\n- Immediately call the `retrieve_available_free_slots_from_database` tool with:\n   - `query.startTime = chosen date in YYYY-MM-DDT00:00:00 format`\n   - `query.endTime = chosen date in YYYY-MM-DDT23:59:59 format`\n- Use the tool response directly to display the available slots to the user in a friendly list.\n\n4. Time-of-Day Preference Handling:\n- If user specifies \"morning,\" \"afternoon,\" or \"evening,\" filter slots accordingly.\n- If no slots match, politely inform and show other slots.\n\n5. Confirmation Before Booking:\n- After user selects a slot, summarize and confirm all details:\n   - Name, email/phone, appointment type, chosen date, selected time.\n   - Example:\n     \"Before I finalize, let me confirm:\n        - Name: [name]\n        - Contact: [email OR phone]\n        - Appointment Type: [Clinic Visit / Online Zoom Consultation]\n        - Date: [chosen date]\n        - Time: [chosen time]\n      Should I proceed to finalize the booking?\"\n\n6. Booking and Payment Flow:\n\n- **If patient chooses Clinic Visit**:\n   - Call the `book_appointment` tool.\n   - Fill dynamic fields as:\n     - `responses.name` → user’s full name\n     - `responses.email` → if email available, use it; if not, auto-generate dummy: `dummy-<phone>@noemail.com`\n     - `responses.phone` → use phone if provided, else empty string\n     - `responses.location.value` → always `\"online\"`\n   - All other fields (eventTypeId, start, timeZone, language, metadata) are already defined in the tool schema.\n  \n   - **After `book_appointment` succeeds, also call the `googlesheet` tool** with:\n     - `name` = user’s full name\n     - `phone` = user’s phone number\n     - `appointment_date` = chosen date + time (ISO format)\n     - `status` = `\"confirmed\"`\n   - If booking succeeds: \n     \"show **confirmation message with hospital details**:\n      ```\n      ✅ Your Clinic Visit is confirmed!\n      Date: [chosen date]\n      Time: [chosen time]\n      📍 Clinic Address:  \nDr. Rameshwer Hospital  \nShreesai Hospital & Trauma Center Pvt. Ltd.  \nSurgeon Lane, Bangaliu Pakri, Gaushala Road  \nSiwan, Bihar – 841226  \n\n-When you confirm a clinic visit appointment, call this webhook with the patient’s data\n      ```\"\n   - If booking fails: \n     \"Something went wrong. Could you please try selecting a different slot?\"\n\n- **If patient chooses Online Zoom Consultation**:\n   - Call the `razorpay_create_payment_link` tool.\nBefore calling razorpay_create_payment_link, ensure all required values (name, email, contact, slot_date, slot_time) are filled.\nIf any value is missing, auto-generate fallback instead of leaving it blank.\n   - Fill dynamic fields as:\n     - `customer.name` → user’s full name\n     - If phone given → include `customer.contact`\n     - If email given → include `customer.email else auto-generate dummy: `dummy-<phone>@noemail.com`\n     - Always include `notes` with:\n       - `name` = patient’s full name\n       - `slot_date` = chosen date\n       - `slot_time` = chosen time\n       - `Payment_Status` = `\"payment_pending\"`\n       - `status` = `\"Pending\"`\n\n\n   - If payment link is created, share it with the user.\n   - After payment link generate, call the `googlesheet` tool with the same fields as above.\n\n7. Behavior Rules:\n- Always check:\n   - If email missing but phone present → generate dummy email & use phone.\n   - If phone missing but email present → proceed with email.\n   - If both missing → politely ask for at least one.\n- Adapt dynamically and don’t ask duplicate questions.\n- Respect timezone and validate inputs (email format, phone digits).\n\nLanguage:\n- Always reply in Hinglish (polite Hindi + English mix).\n\nExamples of Date Interpretation:  \n- \"Tomorrow morning\" → [today + 1 day] and prefer morning slots.  \n- \"Next Monday\" → calculate the next Monday from today's date.  \n- \"May 5th\" → directly use May 5th.  \n- \"Next week\" → politely ask for the exact day.  \n\nToday's date and time: '{{ $('Set credentials').item.json.currentDateTime }}'\n"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 1.7,
+      "position": [
+        -368,
+        -944
+      ],
+      "id": "c3a44630-7cbb-421d-a8ed-921eeb406476",
+      "name": "Appointment  Agent",
+      "executeOnce": true
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "1XmrD-gXcejyDdJqs7fRUY38hypag_bwJ9hizN9uvZhM",
+          "mode": "list",
+          "cachedResultName": "AppoinmentBook",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1XmrD-gXcejyDdJqs7fRUY38hypag_bwJ9hizN9uvZhM/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Sheet1",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1XmrD-gXcejyDdJqs7fRUY38hypag_bwJ9hizN9uvZhM/edit#gid=0"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "SessionId": "={{ $('Set credentials').item.json.sessionId }}",
+            "Name": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('Name', ``, 'string') }}",
+            "Contact": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('Contact', ``, 'string') }}",
+            "Email": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('Email', ``, 'string') }}",
+            "Date": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('Date', ``, 'string') }}",
+            "Time": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('Time', ``, 'string') }}",
+            "Type": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('Type', ``, 'string') }}",
+            "Status": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('Status', ``, 'string') }}",
+            "Payment_Status": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('Payment_Status', ``, 'string') }}"
+          },
+          "matchingColumns": [
+            "SessionId"
+          ],
+          "schema": [
+            {
+              "id": "SessionId",
+              "displayName": "SessionId",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Name",
+              "displayName": "Name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Contact",
+              "displayName": "Contact",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Email",
+              "displayName": "Email",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Date",
+              "displayName": "Date",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Time",
+              "displayName": "Time",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Type",
+              "displayName": "Type",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Status",
+              "displayName": "Status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Payment_Status",
+              "displayName": "Payment_Status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Id",
+              "displayName": "Id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "resumeurl",
+              "displayName": "resumeurl",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheetsTool",
+      "typeVersion": 4.7,
+      "position": [
+        64,
+        -720
+      ],
+      "id": "41682a10-4e5e-4013-940b-d77786b9be1b",
+      "name": "googlesheet",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "DcLMLcvhNSA7TJHX",
+          "name": "Google Sheets account k"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "appendOrUpdate",
+        "documentId": {
+          "__rl": true,
+          "value": "1XmrD-gXcejyDdJqs7fRUY38hypag_bwJ9hizN9uvZhM",
+          "mode": "list",
+          "cachedResultName": "AppoinmentBook",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1XmrD-gXcejyDdJqs7fRUY38hypag_bwJ9hizN9uvZhM/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Sheet1",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1XmrD-gXcejyDdJqs7fRUY38hypag_bwJ9hizN9uvZhM/edit#gid=0"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "SessionId": "={{ $('Webhook').item.json.body.chatId }}",
+            "Name": "={{ $('Webhook').item.json.body.name }}",
+            "Contact": "={{ $('Webhook').item.json.body.contact }}",
+            "Email": "={{ $('Webhook').item.json.body.email }}",
+            "Date": "={{ $('Webhook').item.json.body.date }}",
+            "Time": "={{ $('Webhook').item.json.body.Time }}",
+            "Status": "confirmed",
+            "Payment_Status": "Paid"
+          },
+          "matchingColumns": [
+            "SessionId"
+          ],
+          "schema": [
+            {
+              "id": "SessionId",
+              "displayName": "SessionId",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Name",
+              "displayName": "Name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Contact",
+              "displayName": "Contact",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Email",
+              "displayName": "Email",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Date",
+              "displayName": "Date",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Time",
+              "displayName": "Time",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Type",
+              "displayName": "Type",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "Status",
+              "displayName": "Status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Payment_Status",
+              "displayName": "Payment_Status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Id",
+              "displayName": "Id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "ressumeUrl",
+              "displayName": "ressumeUrl",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        -240,
+        -1248
+      ],
+      "id": "94246f68-523d-4ac2-b0d0-e6c6dfda1677",
+      "name": "Append or update row in sheet",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "DcLMLcvhNSA7TJHX",
+          "name": "Google Sheets account k"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "1XmrD-gXcejyDdJqs7fRUY38hypag_bwJ9hizN9uvZhM",
+          "mode": "list",
+          "cachedResultName": "AppoinmentBook",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1XmrD-gXcejyDdJqs7fRUY38hypag_bwJ9hizN9uvZhM/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Sheet1",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1XmrD-gXcejyDdJqs7fRUY38hypag_bwJ9hizN9uvZhM/edit#gid=0"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheetsTool",
+      "typeVersion": 4.7,
+      "position": [
+        -304,
+        -288
+      ],
+      "id": "5f5b47ef-7b5a-4193-8973-6a48507ec457",
+      "name": "googlesheetgetdata",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "7woKayWfxrf6niwB",
+          "name": "Google Sheets account 2"
+        }
+      },
+      "disabled": true
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "626f073f-ae0e-4de9-b1f9-7fd3b8edb1f6",
+              "leftValue": "={{ $json.Email }}",
+              "rightValue": "dummy65",
+              "operator": {
+                "type": "string",
+                "operation": "contains"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        400,
+        -1264
+      ],
+      "id": "280a80c1-468f-42e4-a199-b882a01b909e",
+      "name": "If"
+    },
+    {
+      "parameters": {
+        "sendTo": "={{ $json.Email }}",
+        "subject": "✅ Your Online Consultation with Dr. Rameshwar Kumar is Confirmed!",
+        "message": "=<div style=\"font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: auto; border: 1px solid #eee; border-radius: 10px; padding: 20px;\">\n  <h2 style=\"text-align: center; color: #0d6efd;\">✅ Appointment Confirmed</h2>\n\n  <p>Hi <b>{{ $json.Name }}</b>,</p>\n\n  <p>Your online consultation has been successfully <b>confirmed</b> ✅</p>\n\n  <h3 style=\"color: #333;\">Appointment Details:</h3>\n  <ul style=\"list-style: none; padding: 0;\">\n    <li>👨‍⚕️ <b>Doctor:</b> Dr. Rameshwar Kumar</li>\n    <li>📅 <b>Date:</b> {{ $json.Date }}</li>\n    <li>🕒 <b>Time:</b> {{ $json.Time }}</li>\n    <li>💻 <b>Mode:</b> Online Consultation (Video Call)</li>\n    <li>🔗 <b>Join Link:</b> <a href=\"{{ $('HTTP Request1').item.json.join_url }}\" target=\"_blank\">Join Zoom Meeting</a></li>\n  </ul>\n\n  <p><b>Please make sure to:</b></p>\n  <ul>\n    <li>Join 5 minutes before your scheduled time</li>\n    <li>Keep your medical reports ready (if any)</li>\n    <li>Ensure a good internet connection</li>\n  </ul>\n\n  <p>If you wish to reschedule or have any questions, reply to this email or contact us at <b>+91 79922 71883</b>.</p>\n\n  <hr style=\"border: none; border-top: 1px solid #ddd; margin: 20px 0;\">\n\n  <p>Thank you for choosing <b>Dr. Rameshwar Kumar</b><br>\n  We look forward to assisting you with your consultation!</p>\n\n  <p style=\"margin-top: 20px;\">\n    Warm regards,<br>\n    <b>Team Dr. Rameshwar Kumar</b><br>\n    📞 +91 79922 71883 | 💻 <a href=\"https://drrameshwarkumar.in/\" target=\"_blank\">drrameshwarkumar.in</a> | 📧 <a href=\"mailto:care@drrameshwarkumar.in\">care@drrameshwarkumar.in</a>\n  </p>\n</div>\n",
+        "options": {
+          "appendAttribution": false
+        }
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        704,
+        -1248
+      ],
+      "id": "59d224dd-1a82-405b-aa39-cc118928f64d",
+      "name": "Send a message",
+      "webhookId": "2e595647-bd02-4866-ad32-a983f560db65",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "EzBRfI1mIVrC5MFk",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "pollTimes": {
+          "item": [
+            {
+              "mode": "everyMinute"
+            }
+          ]
+        },
+        "documentId": {
+          "__rl": true,
+          "value": "1XmrD-gXcejyDdJqs7fRUY38hypag_bwJ9hizN9uvZhM",
+          "mode": "list",
+          "cachedResultName": "AppoinmentBook",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1XmrD-gXcejyDdJqs7fRUY38hypag_bwJ9hizN9uvZhM/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Sheet1",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1XmrD-gXcejyDdJqs7fRUY38hypag_bwJ9hizN9uvZhM/edit#gid=0"
+        },
+        "event": "rowAdded",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheetsTrigger",
+      "typeVersion": 1,
+      "position": [
+        -304,
+        -1680
+      ],
+      "id": "2f6be532-dd14-4273-bd41-1b7345bd96c1",
+      "name": "Google Sheets Trigger",
+      "credentials": {
+        "googleSheetsTriggerOAuth2Api": {
+          "id": "lMVNZAo8SYwqj3zK",
+          "name": "Google Sheets Trigger account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "4e28ce3a-d98a-4e07-b160-d635298b985e",
+              "leftValue": "={{ $json.Type }}",
+              "rightValue": "Clinic Visit",
+              "operator": {
+                "type": "string",
+                "operation": "equals",
+                "name": "filter.operator.equals"
+              }
+            },
+            {
+              "id": "9999db7d-22f0-49fd-a72f-8dbdf4cf4458",
+              "leftValue": "={{ Math.abs(new Date($json[\"created_at\"]).getTime() - new Date().getTime()) < 10000 }}\n",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        16,
+        -1680
+      ],
+      "id": "b9d2ef1c-42a2-4a29-8acc-464076937d7c",
+      "name": "If1"
+    },
+    {
+      "parameters": {
+        "sendTo": "={{ $json.Email }}",
+        "subject": "💌 Clinic Visit Appointment Confirmation Email",
+        "message": "=<div style=\"font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: auto; border: 1px solid #eee; border-radius: 10px; padding: 20px;\">\n  <h2 style=\"text-align: center; color: #198754;\">✅ Clinic Appointment Confirmed</h2>\n\n  <p>Hi <b>{{ $json.Name }}</b>,</p>\n\n  <p>Your in-clinic appointment with <b>Dr. Rameshwar Kumar</b> has been successfully <b>confirmed</b> ✅</p>\n\n  <h3 style=\"color: #333;\">Appointment Details:</h3>\n  <ul style=\"list-style: none; padding: 0;\">\n    <li>👨‍⚕️ <b>Doctor:</b> Dr. Rameshwar Kumar</li>\n    <li>📅 <b>Date:</b> {{ $json.Date }}</li>\n    <li>🕒 <b>Time:</b> {{ $json.Time }}</li>\n    <li>📍 <b>Location:</b> Dr. Rameshwar Kumar Clinic</li>\n    <li>🏥 <b>Address:</b> Dr. Rameshwer Hospital  \nShreesai Hospital & Trauma Center Pvt. Ltd.  \nSurgeon Lane, Bangaliu Pakri, Gaushala Road  \nSiwan, Bihar – 841226  </li>\n    <li>📞 <b>Contact:</b> +91 79922 71883</li>\n  </ul>\n\n  <p><b>Please note:</b></p>\n  <ul>\n    <li>Arrive at least 10 minutes before your appointment time</li>\n    <li>Carry your medical records (if any)</li>\n    <li>Wear a mask and follow clinic safety guidelines</li>\n  </ul>\n\n  <hr style=\"border: none; border-top: 1px solid #ddd; margin: 20px 0;\">\n\n  <p>Thank you for choosing <b>Dr. Rameshwar Kumar</b> for your consultation.<br>\n  We look forward to seeing you at our clinic!</p>\n\n  <p style=\"margin-top: 20px;\">\n    Warm regards,<br>\n    <b>Team Dr. Rameshwar Kumar</b><br>\n    📍 Dr. Rameshwer Hospital  \nShreesai Hospital & Trauma Center Pvt. Ltd.  \nSurgeon Lane, Bangaliu Pakri, Gaushala Road  \nSiwan, Bihar – 841226  <br>\n    📞 +91 79922 71883 | 💻 <a href=\"https://drrameshwarkumar.in/\" target=\"_blank\">drrameshwarkumar.in</a> | 📧 <a href=\"mailto:care@drrameshwarkumar.in\">care@drrameshwarkumar.in</a>\n  </p>\n</div>\n",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        608,
+        -1824
+      ],
+      "id": "38e607bb-4266-4772-b43a-6c089e27a8f9",
+      "name": "Send a message1",
+      "webhookId": "dd40eb0e-ce3a-4e77-ab66-ed100443a9dd",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "EzBRfI1mIVrC5MFk",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// items = rows from trigger\n// sort descending by created_at and pick the first\nreturn [\n  items.sort((a, b) => new Date(b.json.created_at) - new Date(a.json.created_at))[0]\n];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        304,
+        -1776
+      ],
+      "id": "254f8f8c-5b10-4ea6-a6dc-de984954d4af",
+      "name": "Code in JavaScript1"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://dr-rameshwar-appointment-gahmdwcjg2gjdwbh.centralindia-01.azurewebsites.net/webhook/36d18e0c-0386-480f-853a-95d2f60277b6/chat",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"chatId\": \"{{ $('Webhook').item.json.body.chatId }}\",\n  \"message\": \"✅ Payment Received Successfully!  Hello {{ $('Webhook').item.json.body.name }}👋,   Your online consultation with Dr. Rameshwer is confirmed.    🗓 Date & Time: {{ $('Webhook').item.json.body.date }}  {{ $('Webhook').item.json.body.Time }},    🔗 Zoom Link: {{ $('HTTP Request1').item.json.join_url }}    Please join the consultation 5 minutes before your scheduled time.  \"\n}\n",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        96,
+        -1248
+      ],
+      "id": "4458ab0f-aaea-430f-a5c0-947a12501d6a",
+      "name": "HTTP Request7"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "ebe59d89-6de0-4666-89d1-54c7ca5ffb29",
+              "leftValue": "={{ $json.output }}",
+              "rightValue": " link par click ",
+              "operator": {
+                "type": "string",
+                "operation": "contains"
+              }
+            },
+            {
+              "id": "84255025-18dd-47dc-af01-d51ea25d724f",
+              "leftValue": "={{ $json.output }}",
+              "rightValue": "Payment ke baad",
+              "operator": {
+                "type": "string",
+                "operation": "contains"
+              }
+            },
+            {
+              "id": "ee797363-2c98-4327-90cf-fe79e7c04dec",
+              "leftValue": "={{ $json.output }}",
+              "rightValue": "https",
+              "operator": {
+                "type": "string",
+                "operation": "contains"
+              }
+            }
+          ],
+          "combinator": "or"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -16,
+        -944
+      ],
+      "id": "3c8d1f6e-4f8a-4501-90bc-e4b29a95f009",
+      "name": "If3"
+    },
+    {
+      "parameters": {
+        "message": "={{ $json.output }}",
+        "waitUserReply": false,
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.chat",
+      "typeVersion": 1,
+      "position": [
+        256,
+        -1056
+      ],
+      "id": "1ea043c8-9619-449f-ac13-9b5a92323904",
+      "name": "Respond to Chat2"
+    },
+    {
+      "parameters": {
+        "message": "={{ $json.body.message }}",
+        "waitUserReply": false,
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.chat",
+      "typeVersion": 1,
+      "position": [
+        1056,
+        -1072
+      ],
+      "id": "69013b19-2ac0-4893-96a9-d1eaed90077c",
+      "name": "Respond to Chat3"
+    },
+    {
+      "parameters": {
+        "resume": "webhook",
+        "httpMethod": "POST",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        752,
+        -1072
+      ],
+      "id": "91fe1fc8-f54a-4900-9153-489963125422",
+      "name": "Wait",
+      "webhookId": "6013f582-8c9b-45e5-978f-85a4430c8bfe"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "0ef6e9a5-79c2-4b7f-bc78-6f124b1559e4",
+              "name": "=resumeUrl",
+              "value": "={{$execution.resumeUrl}}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        464,
+        -1120
+      ],
+      "id": "11768bf6-20ff-4ae3-ba0b-ddf3d17a432f",
+      "name": "Edit Fields3"
+    },
+    {
+      "parameters": {
+        "operation": "appendOrUpdate",
+        "documentId": {
+          "__rl": true,
+          "value": "1XmrD-gXcejyDdJqs7fRUY38hypag_bwJ9hizN9uvZhM",
+          "mode": "list",
+          "cachedResultName": "AppoinmentBook",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1XmrD-gXcejyDdJqs7fRUY38hypag_bwJ9hizN9uvZhM/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Sheet1",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1XmrD-gXcejyDdJqs7fRUY38hypag_bwJ9hizN9uvZhM/edit#gid=0"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "SessionId": "={{ $('Set credentials').item.json.sessionId }}",
+            "resumeurl": "={{ $json.resumeUrl }}"
+          },
+          "matchingColumns": [
+            "SessionId"
+          ],
+          "schema": [
+            {
+              "id": "SessionId",
+              "displayName": "SessionId",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Name",
+              "displayName": "Name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "Contact",
+              "displayName": "Contact",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "Email",
+              "displayName": "Email",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "Date",
+              "displayName": "Date",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "Time",
+              "displayName": "Time",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "Type",
+              "displayName": "Type",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "Status",
+              "displayName": "Status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "Payment_Status",
+              "displayName": "Payment_Status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "Id",
+              "displayName": "Id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "resumeurl",
+              "displayName": "resumeurl",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        624,
+        -992
+      ],
+      "id": "45ce228d-d46a-4602-8450-08866465909e",
+      "name": "Append or update row in sheet1",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "DcLMLcvhNSA7TJHX",
+          "name": "Google Sheets account k"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "public": true,
+        "initialMessages": "Namaste! 🙏 Main Dr. Rameshwar ka AI Assistant hoon How can i help you today ?🤖\n",
+        "options": {
+          "allowedOrigins": "*",
+          "inputPlaceholder": "Type your message here...",
+          "showWelcomeScreen": false,
+          "title": "👨‍⚕️ Dr. Rameshwar AI Assistant",
+          "customCss": ":root {\n  /* Colors */\n  --chat--color-primary: #e74266;\n  --chat--color-primary-shade-50: #db4061;\n  --chat--color-primary-shade-100: #cf3c5c;\n  --chat--color-secondary: #20b69e;\n  --chat--color-secondary-shade-50: #1ca08a;\n  --chat--color-white: #ffffff;\n  --chat--color-light: #f2f4f8;\n  --chat--color-light-shade-50: #e6e9f1;\n  --chat--color-light-shade-100: #c2c5cc;\n  --chat--color-medium: #d2d4d9;\n  --chat--color-dark: #101330;\n  --chat--color-disabled: #d2d4d9;\n  --chat--color-typing: #404040;\n\n  /* Base Layout */\n  --chat--spacing: 1rem;\n  --chat--border-radius: 0.25rem;\n  --chat--transition-duration: 0.15s;\n  --chat--font-family: (\n    -apple-system,\n    BlinkMacSystemFont,\n    'Segoe UI',\n    Roboto,\n    Oxygen-Sans,\n    Ubuntu,\n    Cantarell,\n    'Helvetica Neue',\n    sans-serif\n  );\n\n  /* Window Dimensions */\n  --chat--window--width: 400px;\n  --chat--window--height: 600px;\n  --chat--window--bottom: var(--chat--spacing);\n  --chat--window--right: var(--chat--spacing);\n  --chat--window--z-index: 9999;\n  --chat--window--border: 1px solid var(--chat--color-light-shade-50);\n  --chat--window--border-radius: var(--chat--border-radius);\n  --chat--window--margin-bottom: var(--chat--spacing);\n\n  /* Header Styles */\n  --chat--header-height: 90px;\n  --chat--header--padding: var(--chat--spacing);\n  --chat--header--background: var(--chat--color-dark);\n  --chat--header--color: var(--chat--color-light);\n  --chat--header--border-top: none;\n  --chat--header--border-bottom: none;\n  --chat--header--border-left: none;\n  --chat--header--border-right: none;\n  --chat--heading--font-size: 1.5em;\n  --chat--subtitle--font-size: inherit;\n  --chat--subtitle--line-height: 0.5;\n\n  /* Message Styles */\n  --chat--message--font-size: 1rem;\n  --chat--message--padding: var(--chat--spacing);\n  --chat--message--border-radius: var(--chat--border-radius);\n  --chat--message-line-height: 1.5;\n  --chat--message--margin-bottom: calc(var(--chat--spacing) * 1);\n  --chat--message--bot--background: var(--chat--color-white);\n  --chat--message--bot--color: var(--chat--color-dark);\n  --chat--message--bot--border: none;\n  --chat--message--user--background: var(--chat--color-secondary);\n  --chat--message--user--color: var(--chat--color-white);\n  --chat--message--user--border: none;\n  --chat--message--pre--background: rgba(0, 0, 0, 0.05);\n  --chat--messages-list--padding: var(--chat--spacing);\n\n  /* Toggle Button */\n  --chat--toggle--size: 64px;\n  --chat--toggle--width: var(--chat--toggle--size);\n  --chat--toggle--height: var(--chat--toggle--size);\n  --chat--toggle--border-radius: 50%;\n  --chat--toggle--background: var(--chat--color-primary);\n  --chat--toggle--hover--background: var(--chat--color-primary-shade-50);\n  --chat--toggle--active--background: var(--chat--color-primary-shade-100);\n  --chat--toggle--color: var(--chat--color-white);\n\n  /* Input Area */\n  --chat--textarea--height: 60px;\n  --chat--textarea--max-height: 40rem;\n  --chat--input--font-size: inherit;\n  --chat--input--border: 0;\n  --chat--input--border-radius: 0;\n  --chat--input--padding: 0.8rem;\n  --chat--input--background: var(--chat--color-white);\n  --chat--input--text-color: initial;\n  --chat--input--line-height: 1.5;\n  --chat--input--placeholder--font-size: var(--chat--input--font-size);\n  --chat--input--border-active: 0;\n  --chat--input--left--panel--width: 2rem;\n\n  /* Button Styles */\n  --chat--button--color: var(--chat--color-light);\n  --chat--button--background: var(--chat--color-primary);\n  --chat--button--padding: calc(var(--chat--spacing) * 1 / 2) var(--chat--spacing);\n  --chat--button--border-radius: var(--chat--border-radius);\n  --chat--button--hover--color: var(--chat--color-light);\n  --chat--button--hover--background: var(--chat--color-primary-shade-50);\n  --chat--close--button--color-hover: var(--chat--color-primary);\n\n  /* Send and File Buttons */\n  --chat--input--send--button--background: var(--chat--color-white);\n  --chat--input--send--button--color: var(--chat--color-secondary);\n  --chat--input--send--button--background-hover: var(--chat--color-primary-shade-50);\n  --chat--input--send--button--color-hover: var(--chat--color-secondary-shade-50);\n  --chat--input--file--button--background: var(--chat--color-white);\n  --chat--input--file--button--color: var(--chat--color-secondary);\n  --chat--input--file--button--background-hover: var(--chat--input--file--button--background);\n  --chat--input--file--button--color-hover: var(--chat--color-secondary-shade-50);\n  --chat--files-spacing: 0.25rem;\n\n  /* Body and Footer */\n  --chat--body--background: var(--chat--color-light);\n  --chat--footer--background: var(--chat--color-light);\n  --chat--footer--color: var(--chat--color-dark);\n}\n\n\n/* You can override any class styles, too. Right-click inspect in Chat UI to find class to override. */\n.chat-message {\n\tmax-width: 60%;\n}",
+          "responseMode": "lastNode"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.chatTrigger",
+      "typeVersion": 1.3,
+      "position": [
+        -1744,
+        -816
+      ],
+      "id": "75260490-657e-4a06-acb3-5c081b259c28",
+      "name": "When chat message received",
+      "webhookId": "8dfdf952-bc16-44c1-b436-709a0e94d524",
+      "retryOnFail": false
+    },
+    {
+      "parameters": {
+        "description": "Use this tool to output the final intent in JSON format as { \"intent\": \"BOOK\" }.\n",
+        "jsCode": "User Input → AI Agent Prompt → AI Agent Code Tool → Structured Output Parser → Final JSON\n"
+      },
+      "type": "@n8n/n8n-nodes-langchain.toolCode",
+      "typeVersion": 1.3,
+      "position": [
+        -880,
+        -592
+      ],
+      "id": "e4adcf61-00a1-48a5-90f0-a5c4f2d6ab2a",
+      "name": "Code Tool"
+    },
+    {
+      "parameters": {
+        "schemaType": "manual",
+        "inputSchema": "{\n  \"type\": \"object\",\n  \"properties\": {\n    \"intent\": {\n      \"type\": \"string\",\n      \"enum\": [\"BOOK\", \"INFO\", \"CONVERSATION\"]\n    }\n  },\n  \"required\": [\"intent\"]\n}\n",
+        "autoFix": true,
+        "customizeRetryPrompt": true,
+        "prompt": "You are an intent classification system.\nYour task is only to fill the JSON schema exactly.\nRules:\n- Output must strictly be a single JSON object.\n- Do not wrap it inside an array.\n- Do not include any field other than \"intent\".\n- Do not include extra text.\n- If there is any parsing error {error}, ignore it and still return the correct JSON.\n\nExample:\n{ \"intent\": \"CONVERSATION\" }\n"
+      },
+      "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+      "typeVersion": 1.3,
+      "position": [
+        -784,
+        -528
+      ],
+      "id": "6b252e8f-91fd-4697-97fe-dd4aaa692642",
+      "name": "Structured Output Parser"
+    },
+    {
+      "parameters": {
+        "modelName": "models/gemini-2.5-flash-lite",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1,
+      "position": [
+        -832,
+        -304
+      ],
+      "id": "69a776c3-193a-4baa-868d-de279fae52bd",
+      "name": "Google Gemini Chat Model6",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "69PnoqpDB56HBakH",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "return items.map(item => {\n    const aiOutput = item.json?.output;\n\n    let intentValue = \"\";\n\n    if (aiOutput) {\n        if (Array.isArray(aiOutput)) {\n            const first = aiOutput[0];\n            intentValue = first?.intent || (first?.sentence ? \"conversation\" : \"\");\n        } else if (typeof aiOutput === \"object\") {\n            intentValue = aiOutput.intent || (aiOutput.sentence ? \"conversation\" : \"\");\n        } else {\n            intentValue = \"conversation\";\n        }\n    }\n\n    return {\n        json: {\n            intent: intentValue\n        }\n    };\n});\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -784,
+        -832
+      ],
+      "id": "96d38045-e15e-43e6-95d2-fdb7207507e0",
+      "name": "Code in JavaScript2"
+    }
+  ],
+  "pinData": {
+    "WhatsApp Trigger": [
+      {
+        "json": {
+          "messaging_product": "whatsapp",
+          "metadata": {
+            "display_phone_number": "15556361215",
+            "phone_number_id": "794003073799790"
+          },
+          "contacts": [
+            {
+              "profile": {
+                "name": "~ 😊 ~"
+              },
+              "wa_id": "918743917011"
+            }
+          ],
+          "messages": [
+            {
+              "from": "918743917011",
+              "id": "wamid.HBgMOTE4NzQzOTE3MDExFQIAEhggQUNENkNCMzJERTNBOTExQjlGQkU0M0QyQjFDNzUyRTQA",
+              "timestamp": "1759739857",
+              "text": {
+                "body": "Hi"
+              },
+              "type": "text"
+            }
+          ],
+          "field": "messages"
+        }
+      }
+    ],
+    "Telegram Trigger": [
+      {
+        "json": {
+          "update_id": 332400815,
+          "message": {
+            "message_id": 2295,
+            "from": {
+              "id": 8146494453,
+              "is_bot": false,
+              "first_name": "Surya kumar",
+              "username": "Suryakumar79",
+              "language_code": "en"
+            },
+            "chat": {
+              "id": 8146494453,
+              "first_name": "Surya kumar",
+              "username": "Suryakumar79",
+              "type": "private"
+            },
+            "date": 1759827417,
+            "text": "Hn kar do"
+          }
+        }
+      }
+    ],
+    "Webhook1": [
+      {
+        "json": {
+          "headers": {
+            "host": "dr-rameshwar-appointment-gahmdwcjg2gjdwbh.centralindia-01.azurewebsites.net",
+            "user-agent": "Razorpay-Webhook/v1",
+            "accept-encoding": "gzip",
+            "max-forwards": "10",
+            "request-id": "RQyXtWn8B0ZdY2",
+            "x-razorpay-event-id": "RQyXtWn8B0ZdY2",
+            "x-razorpay-signature": "1d8aabab0da767201e9aad65b23a84ba432e112d53933ffea4531ed98d6056f7",
+            "x-arr-log-id": "4940f688-66d2-4be3-a159-7eb408244dc5",
+            "client-ip": "52.66.75.174:17381",
+            "disguised-host": "dr-rameshwar-appointment-gahmdwcjg2gjdwbh.centralindia-01.azurewebsites.net",
+            "x-site-deployment-id": "Dr-Rameshwar-appointment",
+            "was-default-hostname": "dr-rameshwar-appointment-gahmdwcjg2gjdwbh.centralindia-01.azurewebsites.net",
+            "x-forwarded-proto": "https",
+            "x-appservice-proto": "https",
+            "x-arr-ssl": "2048|256|CN=Microsoft Azure RSA TLS Issuing CA 04, O=Microsoft Corporation, C=US|CN=*.azurewebsites.net, O=Microsoft Corporation, L=Redmond, S=WA, C=US",
+            "x-forwarded-tlsversion": "1.3",
+            "x-forwarded-for": "52.66.75.174:17381",
+            "x-original-url": "/webhook/Payment",
+            "x-waws-unencoded-url": "/webhook/Payment",
+            "x-client-ip": "52.66.75.174",
+            "x-client-port": "17381",
+            "content-type": "application/json",
+            "content-length": "996"
+          },
+          "params": {},
+          "query": {},
+          "body": {
+            "entity": "event",
+            "account_id": "acc_RAi3fPSOdMZ6UC",
+            "event": "payment.captured",
+            "contains": [
+              "payment"
+            ],
+            "payload": {
+              "payment": {
+                "entity": {
+                  "id": "pay_RQyXrJl5bzlIyW",
+                  "entity": "payment",
+                  "amount": 50000,
+                  "currency": "INR",
+                  "status": "captured",
+                  "order_id": "order_RQyXb8MGHdVJ4O",
+                  "invoice_id": null,
+                  "international": false,
+                  "method": "upi",
+                  "amount_refunded": 0,
+                  "refund_status": null,
+                  "captured": true,
+                  "description": "#RQyXJG9uN33NSe",
+                  "card_id": null,
+                  "bank": null,
+                  "wallet": null,
+                  "vpa": "sokojijhi@ybl",
+                  "email": "void@razorpay.com",
+                  "contact": "+917978995545",
+                  "notes": {
+                    "name": "Kajal",
+                    "chatId": "460d6610-d9b2-4362-bea2-bb60c853c29b",
+                    "slot_date": "2025-10-10",
+                    "slot_time": "11:00 AM"
+                  },
+                  "fee": 1298,
+                  "tax": 198,
+                  "error_code": null,
+                  "error_description": null,
+                  "error_source": null,
+                  "error_step": null,
+                  "error_reason": null,
+                  "acquirer_data": {
+                    "rrn": "319311546277",
+                    "upi_transaction_id": "CB997351551CD6A50CEA165686060122"
+                  },
+                  "created_at": 1759925800,
+                  "reward": null,
+                  "upi": {
+                    "vpa": "sokojijhi@ybl",
+                    "flow": "collect"
+                  },
+                  "base_amount": 50000
+                }
+              }
+            },
+            "created_at": 1759925801
+          },
+          "webhookUrl": "https://dr-rameshwar-appointment-gahmdwcjg2gjdwbh.centralindia-01.azurewebsites.net/webhook/Payment",
+          "executionMode": "production"
+        }
+      }
+    ],
+    "Webhook": [
+      {
+        "json": {
+          "headers": {
+            "accept": "application/json,text/html,application/xhtml+xml,application/xml,text/*;q=0.9, image/*;q=0.8, */*;q=0.7",
+            "host": "dr-rameshwar-appointment-gahmdwcjg2gjdwbh.centralindia-01.azurewebsites.net",
+            "user-agent": "axios/1.12.0",
+            "accept-encoding": "gzip, compress, deflate, br",
+            "max-forwards": "10",
+            "x-arr-log-id": "974effdf-0f1e-4c75-a569-8f912a2ce145",
+            "client-ip": "135.235.209.102:45760",
+            "disguised-host": "dr-rameshwar-appointment-gahmdwcjg2gjdwbh.centralindia-01.azurewebsites.net",
+            "x-site-deployment-id": "Dr-Rameshwar-appointment",
+            "was-default-hostname": "dr-rameshwar-appointment-gahmdwcjg2gjdwbh.centralindia-01.azurewebsites.net",
+            "x-forwarded-proto": "https",
+            "x-appservice-proto": "https",
+            "x-arr-ssl": "2048|256|CN=Microsoft Azure RSA TLS Issuing CA 04, O=Microsoft Corporation, C=US|CN=*.azurewebsites.net, O=Microsoft Corporation, L=Redmond, S=WA, C=US",
+            "x-forwarded-tlsversion": "1.3",
+            "x-forwarded-for": "135.235.209.102:45760",
+            "x-original-url": "/webhook/appointment-confirm",
+            "x-waws-unencoded-url": "/webhook/appointment-confirm",
+            "x-client-ip": "135.235.209.102",
+            "x-client-port": "45760",
+            "content-type": "application/json",
+            "content-length": "253"
+          },
+          "params": {},
+          "query": {},
+          "body": {
+            "message": "✅ Payment received successfully!",
+            "name": "Kajal",
+            "contact": "+917889959595",
+            "oder_id": "order_RRFkhATueCZaDa",
+            "email": "dummy-7686565526@noemail.com",
+            "date": "October 15, 2025",
+            "Time": "02:30 PM",
+            "chatId": "460d6610-d9b2-4362-bea2-bb60c853c29b"
+          },
+          "webhookUrl": "https://dr-rameshwar-appointment-gahmdwcjg2gjdwbh.centralindia-01.azurewebsites.net/webhook/appointment-confirm",
+          "executionMode": "production"
+        }
+      }
+    ],
+    "Google Sheets Trigger": [
+      {
+        "json": {
+          "SessionId": "ee1cf69d83824e23aa5bc2d6ce5ee420",
+          "Name": "Kajal",
+          "Contact": 9895959695,
+          "Email": "dummy-9895959695@noemail.com",
+          "Date": "2025-10-16 16:00",
+          "Time": "16:00",
+          "Type": "Online Zoom Consultation",
+          "Status": "Pending",
+          "Payment_Status": "payment_pending",
+          "Id": "",
+          "resumeurl": ""
+        }
+      },
+      {
+        "json": {
+          "SessionId": "undefined",
+          "Name": "",
+          "Contact": "",
+          "Email": "",
+          "Date": "",
+          "Time": "",
+          "Type": "",
+          "Status": "",
+          "Payment_Status": "",
+          "Id": "",
+          "resumeurl": ""
+        }
+      },
+      {
+        "json": {
+          "SessionId": "ae0f76938c8842949c6afe7e64ba472f",
+          "Name": "Kajal",
+          "Contact": 8989598665,
+          "Email": "dummy-8989598665@noemail.com",
+          "Date": "2025-10-16 16:00:00",
+          "Time": "16:00",
+          "Type": "Clinic Visit",
+          "Status": "confirmed",
+          "Payment_Status": "N/A",
+          "Id": "",
+          "resumeurl": ""
+        }
+      }
+    ]
+  },
+  "connections": {
+    "Window Buffer Memory": {
+      "ai_memory": [
+        [
+          {
+            "node": "Appointment  Agent",
+            "type": "ai_memory",
+            "index": 0
+          },
+          {
+            "node": "Conversational agent",
+            "type": "ai_memory",
+            "index": 0
+          },
+          {
+            "node": "AI Agent",
+            "type": "ai_memory",
+            "index": 0
+          },
+          {
+            "node": "Router Agent",
+            "type": "ai_memory",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "retrieve_available_free_slots_from_database": {
+      "ai_tool": [
+        [
+          {
+            "node": "Appointment  Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "book_appointment": {
+      "ai_tool": [
+        [
+          {
+            "node": "Appointment  Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Router Agent": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set credentials": {
+      "main": [
+        [
+          {
+            "node": "Router Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Gemini Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Router Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Gemini Chat Model1": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Appointment  Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Gemini Chat Model2": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Conversational agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Embeddings Google Gemini1": {
+      "ai_embedding": [
+        [
+          {
+            "node": "Pinecone Vector Store1",
+            "type": "ai_embedding",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Pinecone Vector Store1": {
+      "ai_vectorStore": [
+        [
+          {
+            "node": "Answer questions with a vector store",
+            "type": "ai_vectorStore",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Gemini Chat Model4": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Answer questions with a vector store",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Answer questions with a vector store": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "razorpay_create_payment_link": {
+      "ai_tool": [
+        [
+          {
+            "node": "Appointment  Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Conversational agent": {
+      "main": [
+        []
+      ]
+    },
+    "Switch": {
+      "main": [
+        [
+          {
+            "node": "Appointment  Agent",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Conversational agent",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Gemini Chat Model3": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent": {
+      "main": [
+        []
+      ]
+    },
+    "HTTP Request2": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request1": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request": {
+      "main": [
+        [
+          {
+            "node": "Append or update row in sheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "supabase_insert_appointment": {
+      "ai_tool": [
+        []
+      ]
+    },
+    "Update a row": {
+      "main": [
+        []
+      ]
+    },
+    "Telegram Trigger": {
+      "main": [
+        []
+      ]
+    },
+    "Webhook1": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request3",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send a text message3": {
+      "main": [
+        []
+      ]
+    },
+    "HTTP Request5": {
+      "ai_tool": [
+        [
+          {
+            "node": "Appointment  Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "WhatsApp Trigger": {
+      "main": [
+        [
+          {
+            "node": "Send message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send message": {
+      "main": [
+        []
+      ]
+    },
+    "Appointment  Agent": {
+      "main": [
+        []
+      ]
+    },
+    "googlesheet": {
+      "ai_tool": [
+        [
+          {
+            "node": "Appointment  Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "googlesheetgetdata": {
+      "ai_tool": [
+        [
+          {
+            "node": "Conversational agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Append or update row in sheet": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request7",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If": {
+      "main": [
+        [],
+        [
+          {
+            "node": "Send a message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Sheets Trigger": {
+      "main": [
+        [
+          {
+            "node": "If1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If1": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript1": {
+      "main": [
+        [
+          {
+            "node": "Send a message1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send a message": {
+      "main": [
+        []
+      ]
+    },
+    "HTTP Request7": {
+      "main": [
+        []
+      ]
+    },
+    "If3": {
+      "main": [
+        [
+          {
+            "node": "Respond to Chat2",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    },
+    "Respond to Chat2": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields3",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait": {
+      "main": [
+        [
+          {
+            "node": "Respond to Chat3",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Fields3": {
+      "main": [
+        [
+          {
+            "node": "Append or update row in sheet1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Append or update row in sheet1": {
+      "main": [
+        [
+          {
+            "node": "Wait",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "When chat message received": {
+      "main": [
+        [
+          {
+            "node": "Set credentials",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code Tool": {
+      "ai_tool": [
+        [
+          {
+            "node": "Router Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Structured Output Parser": {
+      "ai_outputParser": [
+        [
+          {
+            "node": "Router Agent",
+            "type": "ai_outputParser",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Gemini Chat Model6": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Structured Output Parser",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript2": {
+      "main": [
+        [
+          {
+            "node": "Switch",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "callerPolicy": "workflowsFromSameOwner",
+    "availableInMCP": false
+  },
+  "versionId": "a2958443-1306-4c2d-b602-6213a65652f7",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "7133e402cd75320389ca859e9a35c0bbf10dfab2b366c6715d76e5790fe6d56c"
+  },
+  "id": "zP56cck2ipOPlaO7",
+  "tags": []
+}
