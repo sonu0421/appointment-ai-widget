@@ -153,7 +153,8 @@
         bottom: 80px;
         right: 0;
         width: 350px;
-        height: 500px;
+        height: 500px; /* desktop default */
+        max-height: calc(100vh - 160px); /* clamp on small desktop viewports */
         background: white;
         border-radius: 16px;
         box-shadow: 0 10px 40px rgba(0, 0, 0, 0.15);
